@@ -1,36 +1,118 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TripGlass
 
-## Getting Started
+TripGlass is a production-ready MVP for AI travel planning. Users enter a destination, dates, budget, interests, pace, and constraints, then receive a day-by-day itinerary with map pins, cost estimates, weather notes, source labels, AI revisions, saved trips, and public read-only sharing.
 
-First, run the development server:
+## Tech Stack
+
+- Next.js App Router, React, TypeScript, Tailwind CSS
+- Supabase Auth, Postgres, and Row Level Security
+- OpenAI Responses API with structured JSON output
+- Google Places API (New) and Maps JavaScript API
+- Open-Meteo weather forecasts
+- Zod, React Hook Form, Lucide React, date-fns
+- Vitest validation tests
+
+## Features
+
+- Landing page, auth, dashboard, settings, trip wizard, trip detail, public share page
+- Server-side API routes for OpenAI, private Google Places, weather, sharing, and revisions
+- Mock fallback mode when OpenAI is missing and `ENABLE_MOCK_MODE=true`
+- Manual destination entry when Google Places is missing
+- Interactive browser map when `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is configured
+- Supabase migrations with RLS policies for profiles, trips, itinerary rows, revisions, places, and chat messages
+
+## Local Setup
 
 ```bash
+npm install
+copy .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Codex cannot create API keys automatically. Create provider accounts, paste keys into `.env.local`, and never commit private keys.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment Variables
 
-## Learn More
+Required for full live mode:
 
-To learn more about Next.js, take a look at the following resources:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `OPENAI_API_KEY`
+- `GOOGLE_MAPS_API_KEY`
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Useful defaults:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `OPENAI_MODEL=gpt-4o-mini`
+- `ENABLE_MOCK_MODE=true`
+- `ENABLE_PUBLIC_SHARING=true`
+- `ENABLE_ROUTES_API=false`
 
-## Deploy on Vercel
+`OPENAI_API_KEY`, `GOOGLE_MAPS_API_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` must stay server-side. The browser Google Maps key should be restricted by domain in Google Cloud.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Supabase Setup
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Create a Supabase project.
+2. Copy the project URL and anon key into `.env.local`.
+3. In Supabase SQL editor, run:
+   - `supabase/migrations/001_initial_schema.sql`
+   - `supabase/migrations/002_rls_policies.sql`
+4. Enable email/password auth. Magic links work if email auth is configured.
+5. Optional: configure Google OAuth in Supabase Auth providers.
+
+## Google Cloud Setup
+
+1. Create a Google Cloud project.
+2. Enable Maps JavaScript API and Places API (New).
+3. Create a server key for `GOOGLE_MAPS_API_KEY`.
+4. Create a browser key for `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` and restrict it by domain, for example `localhost:3000` and your Vercel domain.
+5. Enable Routes API only if you later implement `ENABLE_ROUTES_API=true`.
+
+If Google keys are missing, live autocomplete and maps are disabled with visible warnings. Manual destination entry still works.
+
+## OpenAI Setup
+
+1. Create an OpenAI API key.
+2. Add it to `.env.local` as `OPENAI_API_KEY`.
+3. Optionally set `OPENAI_MODEL`. The default is `gpt-4o-mini`.
+
+The app uses the Responses API with Structured Outputs and validates the returned itinerary with Zod before rendering or saving it.
+
+## Running Checks
+
+```bash
+npm run lint
+npm test
+npm run build
+```
+
+## Deploying to Vercel
+
+1. Push the repo to GitHub.
+2. Import the project in Vercel.
+3. Add all environment variables in Vercel Project Settings.
+4. Deploy.
+5. Add the Vercel domain to your Google browser key restrictions and Supabase auth redirect URLs.
+
+## Mock Mode
+
+With `ENABLE_MOCK_MODE=true`, TripGlass can generate realistic demo itineraries without an OpenAI key. Mock suggestions are clearly labeled and include warnings that prices, hours, and availability are not verified.
+
+## Common Errors
+
+- `MISSING_API_KEY`: add the missing provider key or keep mock mode enabled.
+- `VALIDATION_ERROR`: check destination, duration, travelers, dates, and budget.
+- `UNAUTHORIZED`: sign in or configure Supabase.
+- `GOOGLE_PLACES_ERROR`: verify Places API (New), billing, quotas, and server key restrictions.
+- `OPENAI_ERROR`: verify the OpenAI key, model name, and account billing.
+
+## Future Improvements
+
+- Routes API travel-time enrichment and caching
+- Flight and hotel search through optional Amadeus integration
+- Full input-level trip editing
+- Calendar export and PDF itinerary export
+- Place replacement workflow with richer Google details

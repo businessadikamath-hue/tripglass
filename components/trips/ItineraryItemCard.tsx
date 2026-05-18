@@ -1,0 +1,67 @@
+import { Coffee, Landmark, MapPin, TreePalm, Utensils } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { formatCurrency } from "@/lib/utils/currency";
+import type { ItineraryItem } from "@/types/trip";
+
+const icons = {
+  restaurant: Utensils,
+  cafe: Coffee,
+  museum: Landmark,
+  nature: TreePalm,
+  attraction: Landmark,
+  shopping: MapPin,
+  neighborhood: MapPin,
+  transport: MapPin,
+  break: Coffee,
+  nightlife: MapPin,
+  other: MapPin,
+};
+
+export function ItineraryItemCard({ item }: { item: ItineraryItem }) {
+  const Icon = icons[item.category] ?? MapPin;
+  const verified = item.place.source === "google_places";
+  return (
+    <GlassCard className="p-4" intensity="subtle">
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="w-24 shrink-0 text-sm font-semibold text-cyan-100">
+          {item.start_time} - {item.end_time}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="grid h-9 w-9 place-items-center rounded-2xl border border-white/[0.12] bg-white/[0.10]">
+              <Icon className="h-4 w-4 text-cyan-100" />
+            </span>
+            <h3 className="text-lg font-semibold text-white">{item.title}</h3>
+            <Badge variant={verified ? "success" : item.place.source === "ai_estimate" ? "warning" : "info"}>
+              {verified ? "Verified place" : item.place.source === "ai_estimate" ? "AI estimate" : "User input"}
+            </Badge>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-slate-300">{item.description}</p>
+          {item.place.name ? (
+            <p className="mt-3 text-sm text-slate-300">
+              <span className="font-medium text-slate-100">{item.place.name}</span>
+              {item.place.address ? ` · ${item.place.address}` : ""}
+            </p>
+          ) : null}
+          <div className="mt-4 grid gap-2 text-sm text-slate-400">
+            <p>{formatCurrency(item.estimated_cost.amount, item.estimated_cost.currency)} · {item.estimated_cost.note}</p>
+            <p>{item.why_it_fits}</p>
+            {item.transit_note ? <p>{item.transit_note}</p> : null}
+            {item.accessibility_note ? <p>{item.accessibility_note}</p> : null}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {item.place.google_maps_url ? (
+              <Button href={item.place.google_maps_url} variant="secondary" className="min-h-10 px-4" aria-label={`Open ${item.title} in Google Maps`}>
+                View on map
+              </Button>
+            ) : null}
+            <Button variant="glass" className="min-h-10 px-4">Replace</Button>
+            <Button variant="glass" className="min-h-10 px-4">Save place</Button>
+          </div>
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
