@@ -38,11 +38,17 @@ export async function POST(request: NextRequest) {
       "Trip generation failed.",
       error instanceof Error ? error.message : "Unknown error",
     );
-    return apiError(
-      "OPENAI_ERROR",
-      "Live AI generation failed. Check your OpenAI key, model, billing, and Vercel logs.",
-      502,
-      error,
+    return NextResponse.json(
+      {
+        error: {
+          code: "OPENAI_ERROR",
+          message:
+            "Live AI generation failed. Check your OpenAI key, model, billing, and Vercel logs.",
+          providerMessage:
+            error instanceof Error ? error.message.slice(0, 500) : "Unknown error",
+        },
+      },
+      { status: 502 },
     );
   }
 }
