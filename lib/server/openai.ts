@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { zodTextFormat } from "openai/helpers/zod";
+import { z } from "zod";
 import { tripItinerarySchema } from "@/lib/validation/itinerarySchema";
 import type { NormalizedPlace } from "@/types/places";
 import type { TripInput, TripItinerary } from "@/types/trip";
@@ -11,6 +11,41 @@ export function isOpenAIConfigured() {
 
 export function getOpenAIModel() {
   return process.env.OPENAI_MODEL || "gpt-5.4-mini";
+}
+
+const unsupportedSchemaKeys = new Set([
+  "$schema",
+  "format",
+  "maxLength",
+  "maximum",
+  "minItems",
+  "minLength",
+  "minimum",
+  "pattern",
+]);
+
+export function toOpenAIStructuredSchema(schema: Record<string, unknown>) {
+  function clean(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(clean);
+    if (!value || typeof value !== "object") return value;
+
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([key]) => !unsupportedSchemaKeys.has(key))
+        .map(([key, nested]) => [key, clean(nested)]),
+    );
+  }
+
+  return clean(schema) as Record<string, unknown>;
+}
+
+function itineraryJsonSchema() {
+  return toOpenAIStructuredSchema(
+    z.toJSONSchema(tripItinerarySchema, { target: "draft-7" }) as Record<
+      string,
+      unknown
+    >,
+  );
 }
 
 function systemPrompt() {
@@ -32,7 +67,7 @@ export async function generateItineraryWithOpenAI(args: {
   weather: DailyWeather[];
 }) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const response = await client.responses.parse({
+  const response = await client.responses.create({
     model: getOpenAIModel(),
     input: [
       { role: "system", content: systemPrompt() },
@@ -47,11 +82,16 @@ export async function generateItineraryWithOpenAI(args: {
       },
     ],
     text: {
-      format: zodTextFormat(tripItinerarySchema, "trip_itinerary"),
+      format: {
+        type: "json_schema",
+        name: "trip_itinerary",
+        schema: itineraryJsonSchema(),
+        strict: true,
+      },
     },
   });
 
-  return tripItinerarySchema.parse(response.output_parsed) as TripItinerary;
+  return tripItinerarySchema.parse(JSON.parse(response.output_text)) as TripItinerary;
 }
 
 export async function reviseItineraryWithOpenAI(args: {
@@ -59,7 +99,7 @@ export async function reviseItineraryWithOpenAI(args: {
   itinerary: TripItinerary;
 }) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const response = await client.responses.parse({
+  const response = await client.responses.create({
     model: getOpenAIModel(),
     input: [
       { role: "system", content: systemPrompt() },
@@ -73,9 +113,14 @@ export async function reviseItineraryWithOpenAI(args: {
       },
     ],
     text: {
-      format: zodTextFormat(tripItinerarySchema, "trip_itinerary_revision"),
+      format: {
+        type: "json_schema",
+        name: "trip_itinerary_revision",
+        schema: itineraryJsonSchema(),
+        strict: true,
+      },
     },
   });
 
-  return tripItinerarySchema.parse(response.output_parsed) as TripItinerary;
+  return tripItinerarySchema.parse(JSON.parse(response.output_text)) as TripItinerary;
 }
