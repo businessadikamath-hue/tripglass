@@ -11,7 +11,7 @@ import { getDailyWeather } from "@/lib/server/weather";
 import type { TripInput, TripItinerary } from "@/types/trip";
 
 export function isMockModeEnabled() {
-  return process.env.ENABLE_MOCK_MODE !== "false";
+  return process.env.ENABLE_MOCK_MODE === "true";
 }
 
 export function createShareSlug(destination: string) {
@@ -53,6 +53,10 @@ export async function generateTrip(input: TripInput) {
       itinerary = await generateItineraryWithOpenAI({ input, candidatePlaces, weather });
     } catch (error) {
       if (!isMockModeEnabled()) throw error;
+      console.error(
+        "OpenAI generation failed; using mock fallback.",
+        error instanceof Error ? error.message : "Unknown error",
+      );
       itinerary = buildMockItinerary(input);
       itinerary.warnings.unshift("Live AI generation failed; mock fallback was used.");
       mockMode = true;

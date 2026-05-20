@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isGooglePlacesConfigured } from "@/lib/server/googlePlaces";
 import { isOpenAIConfigured } from "@/lib/server/openai";
+import { isMockModeEnabled } from "@/lib/server/tripGeneration";
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
 
 export function GET() {
@@ -12,7 +13,7 @@ export function GET() {
       googleMapsServer: isGooglePlacesConfigured(),
       googleMapsBrowser: Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY),
       openMeteo: true,
-      mockMode: process.env.ENABLE_MOCK_MODE !== "false",
+      mockMode: isMockModeEnabled(),
     },
   });
 }

@@ -34,7 +34,7 @@ export default function Home() {
               Your next trip starts with one prompt.
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-slate-300">
-              Build a complete itinerary now, even in mock mode before API keys are configured.
+              Build a complete itinerary with live AI planning, source-aware suggestions, maps, weather, and sharing.
             </p>
             <Button href="/trips/new" className="mt-8 rounded-full px-8">
               Create My Trip

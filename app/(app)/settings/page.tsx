@@ -2,6 +2,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { SettingsForm } from "@/components/settings/SettingsForm";
 import { isGooglePlacesConfigured } from "@/lib/server/googlePlaces";
 import { isOpenAIConfigured } from "@/lib/server/openai";
+import { isMockModeEnabled } from "@/lib/server/tripGeneration";
 import { createClient, isSupabaseServerConfigured } from "@/lib/supabase/server";
 
 export default async function SettingsPage() {
@@ -23,7 +24,7 @@ export default async function SettingsPage() {
           openai: isOpenAIConfigured(),
           googleMaps: isGooglePlacesConfigured(),
           openMeteo: true,
-          mockMode: process.env.ENABLE_MOCK_MODE !== "false",
+          mockMode: isMockModeEnabled(),
         }}
       />
     </AppShell>

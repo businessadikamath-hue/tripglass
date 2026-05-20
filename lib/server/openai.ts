@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { z } from "zod";
+import { zodTextFormat } from "openai/helpers/zod";
 import { tripItinerarySchema } from "@/lib/validation/itinerarySchema";
 import type { NormalizedPlace } from "@/types/places";
 import type { TripInput, TripItinerary } from "@/types/trip";
@@ -10,11 +10,7 @@ export function isOpenAIConfigured() {
 }
 
 export function getOpenAIModel() {
-  return process.env.OPENAI_MODEL || "gpt-4o-mini";
-}
-
-function itineraryJsonSchema() {
-  return z.toJSONSchema(tripItinerarySchema, { target: "draft-7" }) as Record<string, unknown>;
+  return process.env.OPENAI_MODEL || "gpt-5.4-mini";
 }
 
 function systemPrompt() {
@@ -36,7 +32,7 @@ export async function generateItineraryWithOpenAI(args: {
   weather: DailyWeather[];
 }) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const response = await client.responses.create({
+  const response = await client.responses.parse({
     model: getOpenAIModel(),
     input: [
       { role: "system", content: systemPrompt() },
@@ -51,16 +47,11 @@ export async function generateItineraryWithOpenAI(args: {
       },
     ],
     text: {
-      format: {
-        type: "json_schema",
-        name: "trip_itinerary",
-        schema: itineraryJsonSchema(),
-        strict: true,
-      },
+      format: zodTextFormat(tripItinerarySchema, "trip_itinerary"),
     },
   });
 
-  return tripItinerarySchema.parse(JSON.parse(response.output_text)) as TripItinerary;
+  return tripItinerarySchema.parse(response.output_parsed) as TripItinerary;
 }
 
 export async function reviseItineraryWithOpenAI(args: {
@@ -68,7 +59,7 @@ export async function reviseItineraryWithOpenAI(args: {
   itinerary: TripItinerary;
 }) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const response = await client.responses.create({
+  const response = await client.responses.parse({
     model: getOpenAIModel(),
     input: [
       { role: "system", content: systemPrompt() },
@@ -82,14 +73,9 @@ export async function reviseItineraryWithOpenAI(args: {
       },
     ],
     text: {
-      format: {
-        type: "json_schema",
-        name: "trip_itinerary_revision",
-        schema: itineraryJsonSchema(),
-        strict: true,
-      },
+      format: zodTextFormat(tripItinerarySchema, "trip_itinerary_revision"),
     },
   });
 
-  return tripItinerarySchema.parse(JSON.parse(response.output_text)) as TripItinerary;
+  return tripItinerarySchema.parse(response.output_parsed) as TripItinerary;
 }

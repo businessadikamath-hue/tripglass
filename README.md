@@ -16,7 +16,7 @@ TripGlass is a production-ready MVP for AI travel planning. Users enter a destin
 
 - Landing page, auth, dashboard, settings, trip wizard, trip detail, public share page
 - Server-side API routes for OpenAI, private Google Places, weather, sharing, and revisions
-- Mock fallback mode when OpenAI is missing and `ENABLE_MOCK_MODE=true`
+- Optional local mock fallback mode when OpenAI is missing and `ENABLE_MOCK_MODE=true`
 - Manual destination entry when Google Places is missing
 - Interactive browser map when `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is configured
 - Supabase migrations with RLS policies for profiles, trips, itinerary rows, revisions, places, and chat messages
@@ -46,8 +46,8 @@ Required for full live mode:
 
 Useful defaults:
 
-- `OPENAI_MODEL=gpt-4o-mini`
-- `ENABLE_MOCK_MODE=true`
+- `OPENAI_MODEL=gpt-5.4-mini`
+- `ENABLE_MOCK_MODE=false` for production, or `true` for local fallback demos
 - `ENABLE_PUBLIC_SHARING=true`
 - `ENABLE_ROUTES_API=false`
 
@@ -77,7 +77,7 @@ If Google keys are missing, live autocomplete and maps are disabled with visible
 
 1. Create an OpenAI API key.
 2. Add it to `.env.local` as `OPENAI_API_KEY`.
-3. Optionally set `OPENAI_MODEL`. The default is `gpt-4o-mini`.
+3. Optionally set `OPENAI_MODEL`. The default is `gpt-5.4-mini`.
 
 The app uses the Responses API with Structured Outputs and validates the returned itinerary with Zod before rendering or saving it.
 
@@ -99,11 +99,11 @@ npm run build
 
 ## Mock Mode
 
-With `ENABLE_MOCK_MODE=true`, TripGlass can generate realistic demo itineraries without an OpenAI key. Mock suggestions are clearly labeled and include warnings that prices, hours, and availability are not verified.
+Production should use `ENABLE_MOCK_MODE=false` so OpenAI issues surface as clear errors instead of quietly returning demo content. For local demos, `ENABLE_MOCK_MODE=true` lets TripGlass generate realistic fallback itineraries without an OpenAI key. Mock suggestions are clearly labeled and include warnings that prices, hours, and availability are not verified.
 
 ## Common Errors
 
-- `MISSING_API_KEY`: add the missing provider key or keep mock mode enabled.
+- `MISSING_API_KEY`: add the missing provider key, or enable mock mode only for local testing.
 - `VALIDATION_ERROR`: check destination, duration, travelers, dates, and budget.
 - `UNAUTHORIZED`: sign in or configure Supabase.
 - `GOOGLE_PLACES_ERROR`: verify Places API (New), billing, quotas, and server key restrictions.

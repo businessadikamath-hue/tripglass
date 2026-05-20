@@ -70,7 +70,7 @@ export default async function DashboardPage() {
       ) : (
         <EmptyState
           title="No trips yet. Build your first itinerary."
-          description="Start with a destination and TripGlass will produce a polished plan. Mock mode works before API keys are added."
+          description="Start with a destination and TripGlass will produce a polished plan with AI suggestions, maps, costs, and weather context."
           action={<Button href="/trips/new">Plan a Trip</Button>}
         />
       )}
