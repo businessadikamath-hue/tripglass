@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { SettingsForm } from "@/components/settings/SettingsForm";
+import { isGeminiConfigured } from "@/lib/server/gemini";
 import { isGooglePlacesConfigured } from "@/lib/server/googlePlaces";
 import { isOpenAIConfigured } from "@/lib/server/openai";
 import { isMockModeEnabled } from "@/lib/server/tripGeneration";
@@ -22,6 +23,7 @@ export default async function SettingsPage() {
         integrations={{
           supabase: isSupabaseServerConfigured(),
           openai: isOpenAIConfigured(),
+          gemini: isGeminiConfigured(),
           googleMaps: isGooglePlacesConfigured(),
           openMeteo: true,
           mockMode: isMockModeEnabled(),

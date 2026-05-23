@@ -1,7 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiError } from "@/lib/server/apiErrors";
+import { reviseItineraryWithGemini } from "@/lib/server/gemini";
 import { buildMockItinerary } from "@/lib/server/mockTrip";
-import { reviseItineraryWithOpenAI, isOpenAIConfigured, getOpenAIModel } from "@/lib/server/openai";
+import { reviseItineraryWithOpenAI } from "@/lib/server/openai";
+import {
+  getAIProvider,
+  getConfiguredAIModel,
+  isConfiguredAIProviderAvailable,
+} from "@/lib/server/tripGeneration";
 import { createClient } from "@/lib/supabase/server";
 import { tripItinerarySchema } from "@/lib/validation/itinerarySchema";
 import { revisionInputSchema } from "@/lib/validation/tripInput";
@@ -23,20 +29,23 @@ export async function POST(
     if (!currentParsed.success) {
       return apiError("VALIDATION_ERROR", "The guest itinerary could not be revised.", 422);
     }
-    if (!isOpenAIConfigured()) {
+    if (!isConfiguredAIProviderAvailable()) {
       const revised = {
         ...currentParsed.data,
-        warnings: [
-          `Mock revision note: "${parsed.data.instruction}" was recorded, but live AI revision needs OPENAI_API_KEY.`,
-          ...currentParsed.data.warnings,
-        ],
+        warnings: [`Mock revision note: "${parsed.data.instruction}" was recorded.`, ...currentParsed.data.warnings],
       };
       return NextResponse.json({ itinerary: revised, mockMode: true });
     }
-    const itinerary = await reviseItineraryWithOpenAI({
-      instruction: parsed.data.instruction,
-      itinerary: currentParsed.data,
-    });
+    const itinerary =
+      getAIProvider() === "gemini"
+        ? await reviseItineraryWithGemini({
+            instruction: parsed.data.instruction,
+            itinerary: currentParsed.data,
+          })
+        : await reviseItineraryWithOpenAI({
+            instruction: parsed.data.instruction,
+            itinerary: currentParsed.data,
+          });
     return NextResponse.json({ itinerary, mockMode: false });
   }
 
@@ -57,14 +66,20 @@ export async function POST(
 
   const record = trip as TripRecord;
   let revised;
-  if (!isOpenAIConfigured()) {
+  if (!isConfiguredAIProviderAvailable()) {
     revised = buildMockItinerary(record.input_snapshot);
     revised.warnings.unshift(`Mock revision mode: "${parsed.data.instruction}"`);
   } else {
-    revised = await reviseItineraryWithOpenAI({
-      instruction: parsed.data.instruction,
-      itinerary: record.itinerary_json,
-    });
+    revised =
+      getAIProvider() === "gemini"
+        ? await reviseItineraryWithGemini({
+            instruction: parsed.data.instruction,
+            itinerary: record.itinerary_json,
+          })
+        : await reviseItineraryWithOpenAI({
+            instruction: parsed.data.instruction,
+            itinerary: record.itinerary_json,
+          });
   }
 
   await supabase.from("trip_revisions").insert({
@@ -81,11 +96,14 @@ export async function POST(
       itinerary_json: revised,
       title: revised.title,
       estimated_total_cost: revised.estimated_total_cost,
-      ai_model: isOpenAIConfigured() ? getOpenAIModel() : "mock",
+      ai_model: isConfiguredAIProviderAvailable() ? getConfiguredAIModel() : "mock",
     })
     .eq("id", tripId)
     .eq("user_id", user.id);
 
   if (updateError) return apiError("DATABASE_ERROR", "Could not save the revised itinerary.", 500);
-  return NextResponse.json({ itinerary: revised, mockMode: !isOpenAIConfigured() });
+  return NextResponse.json({
+    itinerary: revised,
+    mockMode: !isConfiguredAIProviderAvailable(),
+  });
 }

@@ -6,11 +6,11 @@ import type { TripInput, TripItinerary } from "@/types/trip";
 import type { DailyWeather } from "@/types/weather";
 
 export function isOpenAIConfigured() {
-  return Boolean(process.env.OPENAI_API_KEY);
+  return Boolean(process.env.OPENAI_API_KEY?.trim());
 }
 
 export function getOpenAIModel() {
-  return process.env.OPENAI_MODEL || "gpt-5.4-mini";
+  return process.env.OPENAI_MODEL?.trim() || "gpt-5.4-mini";
 }
 
 const unsupportedSchemaKeys = new Set([

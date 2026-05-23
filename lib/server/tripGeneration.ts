@@ -1,5 +1,10 @@
 import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
+import {
+  generateItineraryWithGemini,
+  getGeminiModel,
+  isGeminiConfigured,
+} from "@/lib/server/gemini";
 import { getCandidatePlaces } from "@/lib/server/googlePlaces";
 import { buildMockItinerary } from "@/lib/server/mockTrip";
 import {
@@ -12,6 +17,21 @@ import type { TripInput, TripItinerary } from "@/types/trip";
 
 export function isMockModeEnabled() {
   return process.env.ENABLE_MOCK_MODE === "true";
+}
+
+export function getAIProvider() {
+  const provider = process.env.AI_PROVIDER?.trim().toLowerCase();
+  if (provider === "gemini" || provider === "openai") return provider;
+  if (isGeminiConfigured()) return "gemini";
+  return "openai";
+}
+
+export function isConfiguredAIProviderAvailable() {
+  return getAIProvider() === "gemini" ? isGeminiConfigured() : isOpenAIConfigured();
+}
+
+export function getConfiguredAIModel() {
+  return getAIProvider() === "gemini" ? getGeminiModel() : getOpenAIModel();
 }
 
 export function createShareSlug(destination: string) {
@@ -42,19 +62,22 @@ export async function generateTrip(input: TripInput) {
   let itinerary: TripItinerary;
   let mockMode = false;
 
-  if (!isOpenAIConfigured()) {
+  if (!isConfiguredAIProviderAvailable()) {
     if (!isMockModeEnabled()) {
-      throw new Error("OPENAI_KEY_MISSING");
+      throw new Error(`${getAIProvider().toUpperCase()}_KEY_MISSING`);
     }
     itinerary = buildMockItinerary(input);
     mockMode = true;
   } else {
     try {
-      itinerary = await generateItineraryWithOpenAI({ input, candidatePlaces, weather });
+      itinerary =
+        getAIProvider() === "gemini"
+          ? await generateItineraryWithGemini({ input, candidatePlaces, weather })
+          : await generateItineraryWithOpenAI({ input, candidatePlaces, weather });
     } catch (error) {
       if (!isMockModeEnabled()) throw error;
       console.error(
-        "OpenAI generation failed; using mock fallback.",
+        "AI generation failed; using mock fallback.",
         error instanceof Error ? error.message : "Unknown error",
       );
       itinerary = buildMockItinerary(input);
@@ -95,7 +118,7 @@ export async function generateTrip(input: TripInput) {
         status: "generated",
         input_snapshot: input,
         itinerary_json: itinerary,
-        ai_model: mockMode ? "mock" : getOpenAIModel(),
+        ai_model: mockMode ? "mock" : getConfiguredAIModel(),
         estimated_total_cost: itinerary.estimated_total_cost,
       })
       .select("id")
@@ -112,6 +135,8 @@ export async function generateTrip(input: TripInput) {
     mockMode,
     integrations: {
       openai: isOpenAIConfigured(),
+      gemini: isGeminiConfigured(),
+      aiProvider: getAIProvider(),
       googlePlaces: Boolean(process.env.GOOGLE_MAPS_API_KEY),
       supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
       weather: true,

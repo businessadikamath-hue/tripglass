@@ -6,7 +6,7 @@ TripGlass is a production-ready MVP for AI travel planning. Users enter a destin
 
 - Next.js App Router, React, TypeScript, Tailwind CSS
 - Supabase Auth, Postgres, and Row Level Security
-- OpenAI Responses API with structured JSON output
+- Gemini API or OpenAI Responses API with structured JSON output
 - Google Places API (New) and Maps JavaScript API
 - Open-Meteo weather forecasts
 - Zod, React Hook Form, Lucide React, date-fns
@@ -15,7 +15,7 @@ TripGlass is a production-ready MVP for AI travel planning. Users enter a destin
 ## Features
 
 - Landing page, auth, dashboard, settings, trip wizard, trip detail, public share page
-- Server-side API routes for OpenAI, private Google Places, weather, sharing, and revisions
+- Server-side API routes for Gemini/OpenAI, private Google Places, weather, sharing, and revisions
 - Optional local mock fallback mode when OpenAI is missing and `ENABLE_MOCK_MODE=true`
 - Manual destination entry when Google Places is missing
 - Interactive browser map when `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is configured
@@ -40,18 +40,29 @@ Required for full live mode:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `OPENAI_API_KEY`
+- `GEMINI_API_KEY` if `AI_PROVIDER=gemini`, or `OPENAI_API_KEY` if `AI_PROVIDER=openai`
 - `GOOGLE_MAPS_API_KEY`
 - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
 
 Useful defaults:
 
+- `AI_PROVIDER=gemini`
+- `GEMINI_MODEL=gemini-2.5-flash`
 - `OPENAI_MODEL=gpt-5.4-mini`
 - `ENABLE_MOCK_MODE=false` for production, or `true` for local fallback demos
 - `ENABLE_PUBLIC_SHARING=true`
 - `ENABLE_ROUTES_API=false`
 
-`OPENAI_API_KEY`, `GOOGLE_MAPS_API_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` must stay server-side. The browser Google Maps key should be restricted by domain in Google Cloud.
+`GEMINI_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_MAPS_API_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` must stay server-side. The browser Google Maps key should be restricted by domain in Google Cloud.
+
+## Gemini Setup
+
+1. Create a Gemini API key in Google AI Studio.
+2. Add it to `.env.local` or Vercel as `GEMINI_API_KEY`.
+3. Set `AI_PROVIDER=gemini`.
+4. Set `GEMINI_MODEL=gemini-2.5-flash`.
+
+Gemini is the recommended free-tier provider for launching TripGlass without buying OpenAI credits.
 
 ## Supabase Setup
 
@@ -77,9 +88,10 @@ If Google keys are missing, live autocomplete and maps are disabled with visible
 
 1. Create an OpenAI API key.
 2. Add it to `.env.local` as `OPENAI_API_KEY`.
-3. Optionally set `OPENAI_MODEL`. The default is `gpt-5.4-mini`.
+3. Set `AI_PROVIDER=openai`.
+4. Optionally set `OPENAI_MODEL`. The default is `gpt-5.4-mini`.
 
-The app uses the Responses API with Structured Outputs and validates the returned itinerary with Zod before rendering or saving it.
+The app validates generated itineraries with Zod before rendering or saving them.
 
 ## Running Checks
 
@@ -107,7 +119,7 @@ Production should use `ENABLE_MOCK_MODE=false` so OpenAI issues surface as clear
 - `VALIDATION_ERROR`: check destination, duration, travelers, dates, and budget.
 - `UNAUTHORIZED`: sign in or configure Supabase.
 - `GOOGLE_PLACES_ERROR`: verify Places API (New), billing, quotas, and server key restrictions.
-- `OPENAI_ERROR`: verify the OpenAI key, model name, and account billing.
+- `OPENAI_ERROR`: verify the selected AI provider key, model name, quota, and logs.
 
 ## Future Improvements
 

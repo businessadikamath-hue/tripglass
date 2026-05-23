@@ -31,8 +31,16 @@ export async function POST(request: NextRequest) {
     const result = await generateTrip(parsed.data);
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof Error && error.message === "OPENAI_KEY_MISSING") {
-      return apiError("MISSING_API_KEY", "OpenAI is not configured and mock mode is disabled.", 500);
+    if (
+      error instanceof Error &&
+      (error.message === "OPENAI_KEY_MISSING" ||
+        error.message === "GEMINI_KEY_MISSING")
+    ) {
+      return apiError(
+        "MISSING_API_KEY",
+        "The selected AI provider is not configured and mock mode is disabled.",
+        500,
+      );
     }
     console.error(
       "Trip generation failed.",
@@ -43,7 +51,7 @@ export async function POST(request: NextRequest) {
         error: {
           code: "OPENAI_ERROR",
           message:
-            "Live AI generation failed. Check your OpenAI key, model, billing, and Vercel logs.",
+            "Live AI generation failed. Check your AI provider key, model, quota, and Vercel logs.",
           providerMessage:
             error instanceof Error ? error.message.slice(0, 500) : "Unknown error",
         },
