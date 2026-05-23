@@ -23,6 +23,19 @@ type GooglePlace = {
   googleMapsUri?: string;
 };
 
+type LegacyGooglePlace = {
+  place_id?: string;
+  name?: string;
+  formatted_address?: string;
+  geometry?: { location?: { lat?: number; lng?: number } };
+  rating?: number;
+  user_ratings_total?: number;
+  price_level?: number;
+  types?: string[];
+  url?: string;
+  website?: string;
+};
+
 export function normalizeGooglePlace(place: GooglePlace): NormalizedPlace {
   return {
     place_id: place.id ?? "",
@@ -37,6 +50,63 @@ export function normalizeGooglePlace(place: GooglePlace): NormalizedPlace {
     website_url: place.websiteUri ?? null,
     google_maps_url: place.googleMapsUri ?? null,
   };
+}
+
+function normalizeLegacyGooglePlace(place: LegacyGooglePlace): NormalizedPlace {
+  return {
+    place_id: place.place_id ?? "",
+    name: place.name ?? "Unnamed place",
+    address: place.formatted_address ?? null,
+    lat: place.geometry?.location?.lat ?? null,
+    lng: place.geometry?.location?.lng ?? null,
+    rating: place.rating ?? null,
+    user_ratings_total: place.user_ratings_total ?? null,
+    price_level:
+      place.price_level === undefined ? null : String(place.price_level),
+    types: place.types ?? [],
+    website_url: place.website ?? null,
+    google_maps_url:
+      place.url ??
+      (place.geometry?.location?.lat !== undefined && place.geometry.location.lng !== undefined
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+            `${place.geometry.location.lat},${place.geometry.location.lng}`,
+          )}`
+        : null),
+  };
+}
+
+async function searchPlacesByLegacyText(
+  query: string,
+  locationBias?: { lat: number; lng: number; radiusMeters?: number },
+) {
+  const key = googleKey();
+  if (!key) return [];
+
+  const url = new URL("https://maps.googleapis.com/maps/api/place/textsearch/json");
+  url.searchParams.set("query", query);
+  url.searchParams.set("key", key);
+  if (locationBias) {
+    url.searchParams.set("location", `${locationBias.lat},${locationBias.lng}`);
+    url.searchParams.set("radius", String(locationBias.radiusMeters ?? 35000));
+  }
+
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Google Places legacy search failed with ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    results?: LegacyGooglePlace[];
+    status?: string;
+    error_message?: string;
+  };
+  if (data.status && data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+    throw new Error(data.error_message || `Google Places legacy search failed: ${data.status}`);
+  }
+
+  return (data.results ?? [])
+    .map(normalizeLegacyGooglePlace)
+    .filter((place) => place.place_id);
 }
 
 export async function searchPlacesByText(
@@ -74,11 +144,12 @@ export async function searchPlacesByText(
   });
 
   if (!response.ok) {
-    throw new Error(`Google Places search failed with ${response.status}`);
+    return searchPlacesByLegacyText(query, locationBias);
   }
 
   const data = (await response.json()) as { places?: GooglePlace[] };
-  return (data.places ?? []).map(normalizeGooglePlace).filter((place) => place.place_id);
+  const places = (data.places ?? []).map(normalizeGooglePlace).filter((place) => place.place_id);
+  return places.length ? places : searchPlacesByLegacyText(query, locationBias);
 }
 
 export async function autocompleteDestination(input: string) {
