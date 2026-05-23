@@ -9,16 +9,18 @@ export function Modal({
   title,
   children,
   onClose,
+  className,
 }: {
   open: boolean;
   title: string;
   children: React.ReactNode;
   onClose: () => void;
+  className?: string;
 }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 p-4 backdrop-blur-xl">
-      <GlassCard className="w-full max-w-lg p-6">
+      <GlassCard className={`w-full max-w-lg p-6 ${className ?? ""}`}>
         <div className="mb-4 flex items-center justify-between gap-4">
           <h2 className="text-xl font-semibold">{title}</h2>
           <Button variant="ghost" aria-label="Close modal" onClick={onClose} className="h-10 w-10 px-0">

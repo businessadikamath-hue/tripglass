@@ -8,6 +8,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { Tabs } from "@/components/ui/Tabs";
 import { ToastProvider } from "@/components/ui/Toast";
 import { BudgetSummary } from "@/components/trips/BudgetSummary";
+import { DeleteTripButton } from "@/components/trips/DeleteTripButton";
 import { ItineraryTimeline } from "@/components/trips/ItineraryTimeline";
 import { RevisionPanel } from "@/components/trips/RevisionPanel";
 import { ShareButton } from "@/components/trips/ShareButton";
@@ -80,6 +81,7 @@ export function TripDetailClient({
               <Printer className="h-4 w-4" />
               Export
             </Button>
+            <DeleteTripButton tripId={tripId} tripTitle={itinerary.title} compact />
           </div>
         </div>
         <div className="mt-6 grid gap-3 sm:grid-cols-3">

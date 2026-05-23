@@ -34,10 +34,11 @@ function systemPrompt() {
     "Avoid unsafe, illegal, or age-inappropriate suggestions.",
     "Group activities geographically, include food breaks, transit notes, and backup suggestions.",
     "Include one practical hotel or accommodation recommendation for the trip, but do not claim live room availability, booking availability, or exact nightly prices.",
+    "Include estimated flight cost in budget_breakdown.transit. If no starting city is provided, include a clearly labeled planning allowance only.",
     "Every itinerary item must have a practical start_time and end_time in HH:mm format so a traveler can follow the plan minute by minute.",
     "Every itinerary item must include an estimated_cost.amount number or 0 if free.",
     "Every place should include latitude and longitude when a candidate place provides them.",
-    "The budget_breakdown food, accommodation, activities, transit, and miscellaneous fields must be numbers, not null, and must roughly add up to estimated_total_cost.",
+    "The budget_breakdown food, accommodation, activities, transit, and miscellaneous fields must be numbers, not null, and must roughly add up to estimated_total_cost. Transit must include local transit plus the flight planning allowance.",
     "Return valid JSON only. Do not include markdown.",
     "The JSON must match the TripGlass itinerary shape: title, destination, summary, days_count, currency, estimated_total_cost, budget_status, best_for, neighborhoods, travel_tips, warnings, budget_breakdown, and days. Each day must include weather, items, and backup_options. Each item must include place, estimated_cost, why_it_fits, transit_note, accessibility_note, and booking_note.",
   ].join(" ");

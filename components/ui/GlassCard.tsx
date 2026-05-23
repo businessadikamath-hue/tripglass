@@ -6,9 +6,9 @@ type GlassCardProps = HTMLAttributes<HTMLDivElement> & {
 };
 
 const intensityClass = {
-  subtle: "bg-white/[0.055] shadow-[0_18px_50px_rgba(0,0,0,0.22)]",
-  normal: "bg-white/[0.08] shadow-[0_24px_80px_rgba(0,0,0,0.35)]",
-  strong: "bg-white/[0.12] shadow-[0_30px_90px_rgba(0,0,0,0.44)]",
+  subtle: "bg-[var(--glass)] shadow-[0_18px_50px_rgba(0,0,0,0.22)]",
+  normal: "bg-[var(--glass)] shadow-[0_24px_80px_rgba(0,0,0,0.35)]",
+  strong: "bg-[var(--glass)] shadow-[0_30px_90px_rgba(0,0,0,0.44)]",
 };
 
 export function GlassCard({
@@ -20,7 +20,7 @@ export function GlassCard({
   return (
     <div
       className={cn(
-        "rounded-3xl border border-white/[0.16] backdrop-blur-2xl",
+        "rounded-3xl border border-[var(--glass-border)] backdrop-blur-2xl",
         intensityClass[intensity],
         className,
       )}

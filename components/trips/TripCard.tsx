@@ -2,6 +2,7 @@ import { CalendarDays, MapPin, Share2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { DeleteTripButton } from "@/components/trips/DeleteTripButton";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatDateRange } from "@/lib/utils/dates";
 import type { TripRecord } from "@/types/trip";
@@ -41,6 +42,7 @@ export function TripCard({ trip }: { trip: TripRecord }) {
         <Button href={`/trips/${trip.id}?share=1`} variant="glass" aria-label="Share trip">
           <Share2 className="h-4 w-4" />
         </Button>
+        <DeleteTripButton tripId={trip.id} tripTitle={trip.title} compact />
       </div>
     </GlassCard>
   );

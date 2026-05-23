@@ -9,6 +9,11 @@ import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { createClient } from "@/lib/supabase/client";
+import {
+  applyTheme,
+  getStoredTheme,
+  type ThemePreference,
+} from "@/components/theme/ThemeProvider";
 
 export function SettingsForm({
   profile,
@@ -21,11 +26,19 @@ export function SettingsForm({
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
   const [homeCity, setHomeCity] = useState(profile?.home_city ?? "");
   const [currency, setCurrency] = useState(profile?.default_currency ?? "USD");
+  const [theme, setTheme] = useState<ThemePreference>(() => getStoredTheme());
   const [message, setMessage] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  function changeTheme(value: string) {
+    const nextTheme: ThemePreference =
+      value === "light" || value === "midnight" ? value : "default";
+    setTheme(nextTheme);
+    applyTheme(nextTheme);
+  }
 
   async function save() {
     const supabase = createClient();
@@ -99,11 +112,12 @@ export function SettingsForm({
           />
           <Select
             label="Theme preference"
-            defaultValue="dark-glass"
+            value={theme}
+            onChange={(event) => changeTheme(event.target.value)}
             options={[
-              { value: "dark-glass", label: "Dark glass" },
+              { value: "default", label: "Default" },
+              { value: "light", label: "Light" },
               { value: "midnight", label: "Midnight" },
-              { value: "aurora", label: "Aurora" },
             ]}
           />
         </div>

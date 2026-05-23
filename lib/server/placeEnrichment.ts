@@ -29,6 +29,46 @@ function mapsSearchUrl(query: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
+function isAccommodationLike(item: ItineraryItem) {
+  const text = [item.category, item.title, item.place.name, item.description]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return (
+    text.includes("hotel") ||
+    text.includes("lodging") ||
+    text.includes("accommodation") ||
+    text.includes("guesthouse")
+  );
+}
+
+function normalizeAccommodationItem(
+  item: ItineraryItem,
+  accommodationBudget: number,
+  currency: string,
+): ItineraryItem {
+  if (!isAccommodationLike(item)) return item;
+
+  return {
+    ...item,
+    category: "hotel",
+    estimated_cost: {
+      ...item.estimated_cost,
+      amount:
+        item.estimated_cost.amount && item.estimated_cost.amount > 0
+          ? item.estimated_cost.amount
+          : accommodationBudget,
+      currency,
+      note:
+        item.estimated_cost.note ||
+        "Accommodation estimate only. Not live availability or a booking quote.",
+    },
+    booking_note:
+      item.booking_note ||
+      "Check live rates and cancellation policies on the hotel or booking site before reserving.",
+  };
+}
+
 export async function enrichItineraryPlaces(
   itinerary: TripItinerary,
   input: Pick<TripInput, "destination_text">,
@@ -39,11 +79,13 @@ export async function enrichItineraryPlaces(
     typeof destinationLat === "number" && typeof destinationLng === "number"
       ? { lat: destinationLat, lng: destinationLng }
       : null;
+  const accommodationBudget = itinerary.budget_breakdown.accommodation ?? 0;
 
   const days = await Promise.all(
     itinerary.days.map(async (day) => {
       const items = await Promise.all(
         day.items.map(async (item, itemIndex) => {
+          item = normalizeAccommodationItem(item, accommodationBudget, itinerary.currency);
           if (hasCoordinates(item.place)) return item;
 
           const query = [
@@ -133,7 +175,6 @@ async function ensureHotelRecommendation(
     ),
   );
   const accommodationBudget = itinerary.budget_breakdown.accommodation ?? 0;
-
   if (alreadyHasHotel || accommodationBudget <= 0 || itinerary.days.length === 0) {
     return itinerary;
   }

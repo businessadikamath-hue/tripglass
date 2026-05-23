@@ -14,7 +14,7 @@ import {
   isOpenAIConfigured,
 } from "@/lib/server/openai";
 import { getDailyWeather } from "@/lib/server/weather";
-import type { TripInput, TripItinerary } from "@/types/trip";
+import type { BudgetStatus, TripInput, TripItinerary } from "@/types/trip";
 
 export function getAIProvider() {
   const provider = process.env.AI_PROVIDER?.trim().toLowerCase();
@@ -79,8 +79,13 @@ export async function generateTrip(input: TripInput) {
         : await generateItineraryWithOpenAI({ input, candidatePlaces, weather });
   }
 
-  itinerary = await enrichItineraryPlaces(
+  itinerary = ensureBudgetPlanningEstimates(
     applyWeatherForecast(itinerary, weather),
+    input,
+  );
+
+  itinerary = await enrichItineraryPlaces(
+    itinerary,
     input,
     destinationLat,
     destinationLng,
@@ -139,6 +144,77 @@ export async function generateTrip(input: TripInput) {
       googlePlaces: Boolean(process.env.GOOGLE_MAPS_API_KEY),
       supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
       weather: true,
+    },
+  };
+}
+
+function roundToTen(value: number) {
+  return Math.round(value / 10) * 10;
+}
+
+function estimateAccommodation(input: TripInput) {
+  const roomCount = Math.max(1, Math.ceil(input.travelers / 2));
+  const nights = Math.max(1, input.days_count - 1);
+  const baseline = roomCount * nights * 170;
+  if (!input.budget_amount) return roundToTen(baseline);
+
+  const budgetBased = input.budget_amount * 0.32;
+  return roundToTen(Math.max(Math.min(budgetBased, input.budget_amount * 0.45), baseline * 0.55));
+}
+
+function estimateFlights(input: TripInput) {
+  const perTraveler = input.starting_city?.trim() ? 360 : 280;
+  const baseline = perTraveler * input.travelers;
+  if (!input.budget_amount) return roundToTen(baseline);
+
+  const budgetBased = input.budget_amount * 0.3;
+  return roundToTen(Math.max(Math.min(budgetBased, input.budget_amount * 0.45), baseline * 0.6));
+}
+
+function getBudgetStatus(total: number, budget?: number | null): BudgetStatus {
+  if (!budget) return "unknown";
+  const ratio = total / budget;
+  if (ratio <= 0.9) return "under_budget";
+  if (ratio <= 1.1) return "near_budget";
+  return "over_budget";
+}
+
+function ensureBudgetPlanningEstimates(itinerary: TripItinerary, input: TripInput) {
+  const breakdown = itinerary.budget_breakdown;
+  const accommodation = breakdown.accommodation && breakdown.accommodation > 0
+    ? breakdown.accommodation
+    : estimateAccommodation(input);
+  const localTransit = breakdown.transit ?? 0;
+  const flightEstimate = estimateFlights(input);
+  const transit = localTransit >= flightEstimate ? localTransit : localTransit + flightEstimate;
+  const food = breakdown.food ?? 0;
+  const activities = breakdown.activities ?? 0;
+  const miscellaneous = breakdown.miscellaneous ?? 0;
+  const estimatedTotal = food + accommodation + activities + transit + miscellaneous;
+  const noteParts = [
+    breakdown.notes,
+    `Hotel is a planning estimate, not live room pricing.`,
+    `Transit includes an estimated flight allowance of ${input.currency} ${flightEstimate}; verify live fares before booking.`,
+  ].filter(Boolean);
+
+  return {
+    ...itinerary,
+    estimated_total_cost: estimatedTotal,
+    budget_status: getBudgetStatus(estimatedTotal, input.budget_amount),
+    warnings: Array.from(
+      new Set([
+        ...itinerary.warnings,
+        "Hotel and flight costs are planning estimates, not live prices or availability.",
+      ]),
+    ),
+    budget_breakdown: {
+      ...breakdown,
+      food,
+      accommodation,
+      activities,
+      transit,
+      miscellaneous,
+      notes: noteParts.join(" "),
     },
   };
 }

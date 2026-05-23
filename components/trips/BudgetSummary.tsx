@@ -27,7 +27,37 @@ export function BudgetSummary({
   const [budgetPrompt, setBudgetPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const breakdown = itinerary.budget_breakdown;
+  const rawBreakdown = itinerary.budget_breakdown;
+  const itemTotals = itinerary.days
+    .flatMap((day) => day.items)
+    .reduce(
+      (totals, item) => {
+        const amount = item.estimated_cost.amount ?? 0;
+        if (item.category === "hotel") totals.accommodation += amount;
+        if (item.category === "restaurant" || item.category === "cafe") totals.food += amount;
+        if (item.category === "transport") totals.transit += amount;
+        if (
+          item.category !== "hotel" &&
+          item.category !== "restaurant" &&
+          item.category !== "cafe" &&
+          item.category !== "transport" &&
+          item.category !== "break"
+        ) {
+          totals.activities += amount;
+        }
+        if (item.category === "break") totals.miscellaneous += amount;
+        return totals;
+      },
+      { food: 0, accommodation: 0, activities: 0, transit: 0, miscellaneous: 0 },
+    );
+  const breakdown = {
+    food: rawBreakdown.food ?? itemTotals.food,
+    accommodation: rawBreakdown.accommodation ?? itemTotals.accommodation,
+    activities: rawBreakdown.activities ?? itemTotals.activities,
+    transit: rawBreakdown.transit ?? itemTotals.transit,
+    miscellaneous: rawBreakdown.miscellaneous ?? itemTotals.miscellaneous,
+    notes: rawBreakdown.notes,
+  };
 
   async function reviseBudget() {
     if (!tripId || !budgetPrompt.trim()) return;
@@ -67,9 +97,9 @@ export function BudgetSummary({
       <div className="mt-5 grid gap-3 text-sm">
         {[
           ["Food", breakdown.food],
-          ["Hotel", breakdown.accommodation],
+          ["Hotel / lodging", breakdown.accommodation],
           ["Activities", breakdown.activities],
-          ["Transit", breakdown.transit],
+          ["Transit + flights", breakdown.transit],
           ["Misc", breakdown.miscellaneous],
         ].map(([label, amount]) => (
           <div key={label} className="flex items-center justify-between border-b border-white/10 pb-2 text-slate-300">

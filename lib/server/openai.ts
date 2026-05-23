@@ -59,9 +59,10 @@ function systemPrompt() {
     "Avoid unsafe, illegal, or age-inappropriate suggestions.",
     "Group activities geographically, include food breaks, transit notes, and backup suggestions.",
     "Include one practical hotel or accommodation recommendation for the trip, but do not claim live room availability, booking availability, or exact nightly prices.",
+    "Include estimated flight cost in budget_breakdown.transit. If no starting city is provided, include a clearly labeled planning allowance only.",
     "Every itinerary item must have practical start_time and end_time values in HH:mm format.",
     "Every place should include latitude and longitude when candidate place data provides them.",
-    "The budget_breakdown must include numeric food, accommodation, activities, transit, and miscellaneous category estimates.",
+    "The budget_breakdown must include numeric food, accommodation, activities, transit, and miscellaneous category estimates. Transit must include local transit plus the flight planning allowance.",
   ].join(" ");
 }
 
