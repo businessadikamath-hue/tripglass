@@ -39,7 +39,10 @@ export function normalizeGooglePlace(place: GooglePlace): NormalizedPlace {
   };
 }
 
-export async function searchPlacesByText(query: string, locationBias?: { lat: number; lng: number }) {
+export async function searchPlacesByText(
+  query: string,
+  locationBias?: { lat: number; lng: number; radiusMeters?: number },
+) {
   const key = googleKey();
   if (!key) return [];
 
@@ -53,7 +56,7 @@ export async function searchPlacesByText(query: string, locationBias?: { lat: nu
     body.locationBias = {
       circle: {
         center: { latitude: locationBias.lat, longitude: locationBias.lng },
-        radius: 35000,
+        radius: locationBias.radiusMeters ?? 35000,
       },
     };
   }
@@ -109,15 +112,22 @@ export async function getCandidatePlaces(input: {
   lng?: number | null;
   interests: string[];
   foodPreferences: string[];
+  travelRadiusMinutes?: number | null;
+  rentalCar?: "no" | "maybe" | "yes" | null;
 }) {
   if (!isGooglePlacesConfigured()) return [];
   const lowerInterests = input.interests.map((item) => item.toLowerCase());
+  const radiusMeters = Math.min(
+    50000,
+    Math.max(8000, (input.travelRadiusMinutes ?? 45) * (input.rentalCar === "yes" ? 950 : 650)),
+  );
   const queries = [
     `top attractions in ${input.destination}`,
-    `best hotels in ${input.destination}`,
-    `well located hotels in ${input.destination}`,
+    `specific well rated hotels in ${input.destination}`,
+    `central boutique hotels in ${input.destination}`,
     `best neighborhoods to explore in ${input.destination}`,
-    `best affordable restaurants in ${input.destination}`,
+    `specific best affordable restaurants in ${input.destination}`,
+    `specific local restaurants in ${input.destination}`,
     lowerInterests.includes("museums") ? `best museums in ${input.destination}` : null,
     lowerInterests.includes("nature") ? `parks and nature in ${input.destination}` : null,
     lowerInterests.includes("cafes") ? `best cafes in ${input.destination}` : null,
@@ -132,7 +142,7 @@ export async function getCandidatePlaces(input: {
   for (const query of queries) {
     const results = await searchPlacesByText(
       query,
-      input.lat && input.lng ? { lat: input.lat, lng: input.lng } : undefined,
+      input.lat && input.lng ? { lat: input.lat, lng: input.lng, radiusMeters } : undefined,
     );
     for (const place of results) {
       if (!seen.has(place.place_id) && seen.size < 60) seen.set(place.place_id, place);

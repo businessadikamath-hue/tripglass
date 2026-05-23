@@ -76,6 +76,8 @@ export function TripWizard() {
       travel_style: "Couple",
       start_time_preference: "Normal",
       walking_tolerance: "Medium",
+      travel_radius_minutes: 45,
+      rental_car: "no",
       interests: ["Food", "Hidden gems", "Local neighborhoods"],
       food_preferences: [],
       accessibility_needs: [],
@@ -270,6 +272,25 @@ export function TripWizard() {
             <Select label="Trip type" {...form.register("travel_style")} options={["Solo", "Couple", "Family", "Friends", "Business"].map((value) => ({ value, label: value }))} />
             <Select label="Start time preference" {...form.register("start_time_preference")} options={["Early", "Normal", "Late"].map((value) => ({ value, label: value }))} />
             <Select label="Daily walking tolerance" {...form.register("walking_tolerance")} options={["Low", "Medium", "High"].map((value) => ({ value, label: value }))} />
+            <Select
+              label="How far are you OK traveling?"
+              {...form.register("travel_radius_minutes")}
+              options={[
+                { value: "15", label: "Walkable core, about 15 min" },
+                { value: "30", label: "Nearby neighborhoods, about 30 min" },
+                { value: "60", label: "Across the city, about 1 hour" },
+                { value: "120", label: "Day trips, up to 2 hours" },
+              ]}
+            />
+            <Select
+              label="Rent a car?"
+              {...form.register("rental_car")}
+              options={[
+                { value: "no", label: "No, public transit / walking" },
+                { value: "maybe", label: "Maybe, if it helps" },
+                { value: "yes", label: "Yes, plan with a car" },
+              ]}
+            />
           </div>
         ) : null}
 
@@ -315,6 +336,8 @@ export function TripWizard() {
                 ["Budget", `${values.currency} ${values.budget_amount ?? "Flexible"}`],
                 ["Travelers", `${values.travelers}`],
                 ["Pace", values.pace],
+                ["Travel range", `${values.travel_radius_minutes ?? 45} min`],
+                ["Rental car", values.rental_car === "yes" ? "Yes" : values.rental_car === "maybe" ? "Maybe" : "No"],
                 ["Interests", interests.join(", ")],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-2xl border border-white/[0.12] bg-white/[0.06] p-4">

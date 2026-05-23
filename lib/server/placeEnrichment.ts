@@ -29,6 +29,33 @@ function mapsSearchUrl(query: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
+function isGenericPlaceName(value?: string | null) {
+  const text = value?.trim().toLowerCase();
+  if (!text) return true;
+  return (
+    text.length < 4 ||
+    text.includes("near your accommodation") ||
+    text.includes("central hotel") ||
+    text.includes("hotel area") ||
+    text.includes("local hotel") ||
+    text.includes("suggested hotel") ||
+    text.includes("well located hotel") ||
+    text.includes("local bistro") ||
+    text.includes("local restaurant") ||
+    text.includes("restaurant in ") ||
+    text.includes("restaurants in ") ||
+    text.includes("cafe near") ||
+    text.includes("café near") ||
+    text.includes("lunch in ") ||
+    text.includes("dinner in ") ||
+    text.includes("breakfast at a local")
+  );
+}
+
+function isFoodLike(item: ItineraryItem) {
+  return item.category === "restaurant" || item.category === "cafe";
+}
+
 function isAccommodationLike(item: ItineraryItem) {
   const text = [item.category, item.title, item.place.name, item.description]
     .filter(Boolean)
@@ -40,6 +67,37 @@ function isAccommodationLike(item: ItineraryItem) {
     text.includes("accommodation") ||
     text.includes("guesthouse")
   );
+}
+
+function shouldResolveSpecificPlace(item: ItineraryItem) {
+  if (!isAccommodationLike(item) && !isFoodLike(item)) return false;
+  return item.place.source !== "google_places" || isGenericPlaceName(item.place.name);
+}
+
+function specificPlaceQuery(item: ItineraryItem, destination: string) {
+  if (isAccommodationLike(item)) {
+    return isGenericPlaceName(item.place.name)
+      ? `specific well rated hotel in ${destination}`
+      : `${item.place.name} hotel ${destination}`;
+  }
+
+  const meal = item.category === "cafe" ? "cafe" : "restaurant";
+  return isGenericPlaceName(item.place.name)
+    ? `specific ${meal} in ${destination} for ${item.title}`
+    : `${item.place.name} ${destination}`;
+}
+
+async function findFirstMappedPlace(
+  queries: string[],
+  destinationCenter: { lat: number; lng: number } | null,
+) {
+  for (const query of queries) {
+    const googlePlace = await searchPlacesByText(query, destinationCenter ?? undefined)
+      .then((places) => places.find((place) => hasCoordinates(place)))
+      .catch(() => undefined);
+    if (googlePlace) return googlePlace;
+  }
+  return undefined;
 }
 
 function normalizeAccommodationItem(
@@ -86,27 +144,31 @@ export async function enrichItineraryPlaces(
       const items = await Promise.all(
         day.items.map(async (item, itemIndex) => {
           item = normalizeAccommodationItem(item, accommodationBudget, itinerary.currency);
-          if (hasCoordinates(item.place)) return item;
+          const needsSpecificReplacement = shouldResolveSpecificPlace(item);
+          if (hasCoordinates(item.place) && !needsSpecificReplacement) return item;
 
-          const query = [
-            item.place.name,
-            item.place.address,
-            item.title,
-            input.destination_text,
-          ]
-            .filter(Boolean)
-            .join(", ");
-
-          const googlePlace = await searchPlacesByText(
-            query,
-            destinationCenter ?? undefined,
-          )
-            .then((places) => places.find((place) => hasCoordinates(place)))
-            .catch(() => undefined);
+          const query = needsSpecificReplacement
+            ? specificPlaceQuery(item, input.destination_text)
+            : [item.place.name, item.place.address, item.title, input.destination_text]
+                .filter(Boolean)
+                .join(", ");
+          const fallbackQuery = isAccommodationLike(item)
+            ? `best hotels in ${input.destination_text}`
+            : isFoodLike(item)
+              ? `best restaurants in ${input.destination_text}`
+              : query;
+          const googlePlace = await findFirstMappedPlace(
+            Array.from(new Set([query, fallbackQuery])),
+            destinationCenter,
+          );
 
           if (googlePlace && googlePlace.lat !== null && googlePlace.lng !== null) {
             return {
               ...item,
+              title:
+                isAccommodationLike(item) || isFoodLike(item)
+                  ? googlePlace.name
+                  : item.title,
               place: {
                 ...item.place,
                 name: googlePlace.name ?? item.place.name,
@@ -119,6 +181,8 @@ export async function enrichItineraryPlaces(
               },
             };
           }
+
+          if (hasCoordinates(item.place)) return item;
 
           if (!destinationCenter) {
             return {
@@ -179,13 +243,15 @@ async function ensureHotelRecommendation(
     return itinerary;
   }
 
-  const query = `well located hotel in ${input.destination_text}`;
-  const googlePlace = await searchPlacesByText(
-    query,
-    destinationCenter ?? undefined,
-  )
-    .then((places) => places.find((place) => hasCoordinates(place)))
-    .catch(() => undefined);
+  const query = `specific well rated hotel in ${input.destination_text}`;
+  const googlePlace = await findFirstMappedPlace(
+    [
+      query,
+      `best hotels in ${input.destination_text}`,
+      `central hotels in ${input.destination_text}`,
+    ],
+    destinationCenter,
+  );
 
   const fallback = destinationCenter
     ? approximateCoordinate(destinationCenter.lat, destinationCenter.lng, 1, 99)

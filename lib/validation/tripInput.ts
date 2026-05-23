@@ -27,6 +27,8 @@ export const tripInputSchema = z
     travel_style: z.string().min(1).default("Couple"),
     start_time_preference: z.string().nullable().optional(),
     walking_tolerance: z.string().nullable().optional(),
+    travel_radius_minutes: z.coerce.number().int().min(15).max(180).nullable().optional(),
+    rental_car: z.enum(["no", "maybe", "yes"]).nullable().optional(),
     interests: optionalTextArray,
     food_preferences: optionalTextArray,
     accessibility_needs: optionalTextArray,

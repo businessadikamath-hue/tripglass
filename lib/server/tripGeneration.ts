@@ -66,6 +66,8 @@ export async function generateTrip(input: TripInput) {
     lng: destinationLng,
     interests: input.interests,
     foodPreferences: input.food_preferences,
+    travelRadiusMinutes: input.travel_radius_minutes,
+    rentalCar: input.rental_car,
   }).catch(() => []);
 
   let itinerary: TripItinerary;

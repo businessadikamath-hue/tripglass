@@ -105,6 +105,8 @@ export type TripInput = {
   travel_style: string;
   start_time_preference?: string | null;
   walking_tolerance?: string | null;
+  travel_radius_minutes?: number | null;
+  rental_car?: "no" | "maybe" | "yes" | null;
   interests: string[];
   food_preferences: string[];
   accessibility_needs: string[];
