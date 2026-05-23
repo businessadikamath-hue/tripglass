@@ -1,6 +1,4 @@
-import { z } from "zod";
 import { tripItinerarySchema } from "@/lib/validation/itinerarySchema";
-import { toOpenAIStructuredSchema } from "@/lib/server/openai";
 import type { NormalizedPlace } from "@/types/places";
 import type { TripInput, TripItinerary } from "@/types/trip";
 import type { DailyWeather } from "@/types/weather";
@@ -24,15 +22,6 @@ export function getGeminiModel() {
   return process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 }
 
-function itineraryJsonSchema() {
-  return toOpenAIStructuredSchema(
-    z.toJSONSchema(tripItinerarySchema, { target: "draft-7" }) as Record<
-      string,
-      unknown
-    >,
-  );
-}
-
 function systemPrompt() {
   return [
     "You are a careful travel-planning engine.",
@@ -43,6 +32,8 @@ function systemPrompt() {
     "If a detail is estimated, mark it as estimated or low confidence.",
     "Avoid unsafe, illegal, or age-inappropriate suggestions.",
     "Group activities geographically, include food breaks, transit notes, and backup suggestions.",
+    "Return valid JSON only. Do not include markdown.",
+    "The JSON must match the TripGlass itinerary shape: title, destination, summary, days_count, currency, estimated_total_cost, budget_status, best_for, neighborhoods, travel_tips, warnings, budget_breakdown, and days. Each day must include weather, items, and backup_options. Each item must include place, estimated_cost, why_it_fits, transit_note, accessibility_note, and booking_note.",
   ].join(" ");
 }
 
@@ -72,7 +63,6 @@ async function generateStructuredItinerary(prompt: string) {
         ],
         generationConfig: {
           responseMimeType: "application/json",
-          responseJsonSchema: itineraryJsonSchema(),
         },
       }),
     },
