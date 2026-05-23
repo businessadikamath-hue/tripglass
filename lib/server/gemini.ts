@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { tripItinerarySchema } from "@/lib/validation/itinerarySchema";
 import type { NormalizedPlace } from "@/types/places";
 import type { TripInput, TripItinerary } from "@/types/trip";
@@ -38,6 +39,33 @@ function systemPrompt() {
 }
 
 async function generateStructuredItinerary(prompt: string) {
+  const firstText = await requestGeminiJson(prompt);
+
+  try {
+    return tripItinerarySchema.parse(JSON.parse(firstText)) as TripItinerary;
+  } catch (error) {
+    if (!(error instanceof z.ZodError)) throw error;
+
+    const repairedText = await requestGeminiJson(
+      JSON.stringify({
+        task: "Repair this JSON so it exactly matches the TripGlass itinerary schema. Return only the repaired JSON.",
+        validation_errors: error.issues,
+        invalid_json: firstText,
+        hard_requirements: [
+          "budget_status must be one of: under_budget, near_budget, over_budget, unknown.",
+          "All cost fields must be numbers or null, never strings.",
+          "All nullable fields must be present with either a value or null.",
+          "Each itinerary item category must be one of the allowed category enum values.",
+          "Each place.source must be google_places, ai_estimate, or user_input.",
+        ],
+      }),
+    );
+
+    return tripItinerarySchema.parse(JSON.parse(repairedText)) as TripItinerary;
+  }
+}
+
+async function requestGeminiJson(prompt: string) {
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) throw new Error("GEMINI_KEY_MISSING");
 
@@ -81,7 +109,7 @@ async function generateStructuredItinerary(prompt: string) {
     .join("");
 
   if (!text) throw new Error("Gemini returned an empty response.");
-  return tripItinerarySchema.parse(JSON.parse(text)) as TripItinerary;
+  return text;
 }
 
 export async function generateItineraryWithGemini(args: {
