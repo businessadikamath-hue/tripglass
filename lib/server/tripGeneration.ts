@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
+import { searchDestinationsFallback } from "@/lib/server/geocoding";
 import {
   generateItineraryWithGemini,
   getGeminiModel,
@@ -39,17 +40,29 @@ export function createShareSlug(destination: string) {
 }
 
 export async function generateTrip(input: TripInput) {
+  let destinationLat = input.destination_lat;
+  let destinationLng = input.destination_lng;
+
+  if (destinationLat === null || destinationLat === undefined || destinationLng === null || destinationLng === undefined) {
+    const fallbackDestination = await searchDestinationsFallback(input.destination_text).catch(
+      () => [],
+    );
+    destinationLat = fallbackDestination[0]?.lat ?? null;
+    destinationLng = fallbackDestination[0]?.lng ?? null;
+  }
+
   const weather = await getDailyWeather(
-    input.destination_lat,
-    input.destination_lng,
+    destinationLat,
+    destinationLng,
     input.start_date,
     input.end_date,
+    input.days_count,
   ).catch(() => []);
 
   const candidatePlaces = await getCandidatePlaces({
     destination: input.destination_text,
-    lat: input.destination_lat,
-    lng: input.destination_lng,
+    lat: destinationLat,
+    lng: destinationLng,
     interests: input.interests,
     foodPreferences: input.food_preferences,
   }).catch(() => []);
@@ -65,6 +78,8 @@ export async function generateTrip(input: TripInput) {
         : await generateItineraryWithOpenAI({ input, candidatePlaces, weather });
   }
 
+  itinerary = applyWeatherForecast(itinerary, weather);
+
   const supabase = await createClient();
   let tripId: string | null = null;
   const {
@@ -79,8 +94,8 @@ export async function generateTrip(input: TripInput) {
         title: itinerary.title,
         destination_text: input.destination_text,
         destination_place_id: input.destination_place_id ?? null,
-        destination_lat: input.destination_lat ?? null,
-        destination_lng: input.destination_lng ?? null,
+        destination_lat: destinationLat ?? null,
+        destination_lng: destinationLng ?? null,
         start_date: input.start_date ?? null,
         end_date: input.end_date ?? null,
         days_count: input.days_count,
@@ -119,5 +134,47 @@ export async function generateTrip(input: TripInput) {
       supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
       weather: true,
     },
+  };
+}
+
+function packingTipFor(condition: string | null, high: number | null, low: number | null) {
+  const lower = condition?.toLowerCase() ?? "";
+  if (lower.includes("rain") || lower.includes("drizzle") || lower.includes("thunder")) {
+    return "Pack a compact umbrella or rain shell and choose shoes that handle wet streets.";
+  }
+  if (high !== null && high >= 28) {
+    return "Bring a refillable water bottle, sunscreen, and breathable layers.";
+  }
+  if (low !== null && low <= 8) {
+    return "Bring a warm layer, especially for early starts and evening plans.";
+  }
+  return "Bring comfortable walking shoes and one light layer for changing conditions.";
+}
+
+function applyWeatherForecast(itinerary: TripItinerary, weather: Awaited<ReturnType<typeof getDailyWeather>>) {
+  if (weather.length === 0) return itinerary;
+
+  return {
+    ...itinerary,
+    days: itinerary.days.map((day, index) => {
+      const forecast = weather[index] ?? weather[weather.length - 1];
+      if (!forecast) return day;
+
+      return {
+        ...day,
+        date: day.date ?? forecast.date,
+        weather: {
+          available: forecast.available,
+          condition: forecast.condition,
+          high_temp_c: forecast.high_temp_c,
+          low_temp_c: forecast.low_temp_c,
+          packing_tip: packingTipFor(
+            forecast.condition,
+            forecast.high_temp_c,
+            forecast.low_temp_c,
+          ),
+        },
+      };
+    }),
   };
 }

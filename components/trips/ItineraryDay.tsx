@@ -1,9 +1,19 @@
 import { ItineraryItemCard } from "@/components/trips/ItineraryItemCard";
 import { Badge } from "@/components/ui/Badge";
 import { GlassCard } from "@/components/ui/GlassCard";
-import type { ItineraryDay as ItineraryDayType } from "@/types/trip";
+import type { ItineraryDay as ItineraryDayType, TripItinerary } from "@/types/trip";
 
-export function ItineraryDay({ day }: { day: ItineraryDayType }) {
+export function ItineraryDay({
+  day,
+  tripId,
+  itinerary,
+  onRevised,
+}: {
+  day: ItineraryDayType;
+  tripId?: string;
+  itinerary?: TripItinerary;
+  onRevised?: (itinerary: TripItinerary) => void;
+}) {
   return (
     <section className="space-y-4">
       <GlassCard className="p-5">
@@ -17,7 +27,15 @@ export function ItineraryDay({ day }: { day: ItineraryDayType }) {
         </div>
       </GlassCard>
       {day.items.map((item, index) => (
-        <ItineraryItemCard key={`${day.day_number}-${index}-${item.title}`} item={item} />
+        <ItineraryItemCard
+          key={`${day.day_number}-${index}-${item.title}`}
+          item={item}
+          dayNumber={day.day_number}
+          itemIndex={index}
+          tripId={tripId}
+          itinerary={itinerary}
+          onRevised={onRevised}
+        />
       ))}
       {day.backup_options.length ? (
         <GlassCard className="p-4" intensity="subtle">

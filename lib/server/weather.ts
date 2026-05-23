@@ -1,3 +1,4 @@
+import { addDays, format, parseISO } from "date-fns";
 import type { DailyWeather } from "@/types/weather";
 
 const weatherCodes: Record<number, string> = {
@@ -25,18 +26,24 @@ export async function getDailyWeather(
   lng?: number | null,
   startDate?: string | null,
   endDate?: string | null,
+  daysCount = 1,
 ): Promise<DailyWeather[]> {
-  if (lat === null || lat === undefined || lng === null || lng === undefined || !startDate || !endDate) {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) {
     return [];
   }
+
+  const safeDaysCount = Math.min(Math.max(daysCount, 1), 16);
+  const effectiveStartDate = startDate || format(new Date(), "yyyy-MM-dd");
+  const effectiveEndDate =
+    endDate || format(addDays(parseISO(effectiveStartDate), safeDaysCount - 1), "yyyy-MM-dd");
 
   const url = new URL("https://api.open-meteo.com/v1/forecast");
   url.searchParams.set("latitude", String(lat));
   url.searchParams.set("longitude", String(lng));
   url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max");
   url.searchParams.set("timezone", "auto");
-  url.searchParams.set("start_date", startDate);
-  url.searchParams.set("end_date", endDate);
+  url.searchParams.set("start_date", effectiveStartDate);
+  url.searchParams.set("end_date", effectiveEndDate);
 
   const response = await fetch(url, { next: { revalidate: 60 * 60 } });
 
@@ -44,7 +51,7 @@ export async function getDailyWeather(
     if (response.status === 400) {
       return [
         {
-          date: startDate,
+          date: effectiveStartDate,
           available: false,
           condition: null,
           high_temp_c: null,

@@ -1,9 +1,13 @@
+"use client";
+
+import { useState } from "react";
 import { Coffee, Landmark, MapPin, TreePalm, Utensils } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { Textarea } from "@/components/ui/Textarea";
 import { formatCurrency } from "@/lib/utils/currency";
-import type { ItineraryItem } from "@/types/trip";
+import type { ItineraryItem, TripItinerary } from "@/types/trip";
 
 const icons = {
   restaurant: Utensils,
@@ -19,9 +23,59 @@ const icons = {
   other: MapPin,
 };
 
-export function ItineraryItemCard({ item }: { item: ItineraryItem }) {
+export function ItineraryItemCard({
+  item,
+  dayNumber,
+  itemIndex,
+  tripId,
+  itinerary,
+  onRevised,
+}: {
+  item: ItineraryItem;
+  dayNumber?: number;
+  itemIndex?: number;
+  tripId?: string;
+  itinerary?: TripItinerary;
+  onRevised?: (itinerary: TripItinerary) => void;
+}) {
   const Icon = icons[item.category] ?? MapPin;
   const verified = item.place.source === "google_places";
+  const [isReplacing, setIsReplacing] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function replacePlace() {
+    if (!tripId || !itinerary || !prompt.trim()) return;
+    setLoading(true);
+    setError("");
+
+    const response = await fetch(`/api/trips/${tripId}/revise`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instruction: [
+          `Replace or revise Day ${dayNumber ?? "?"} item ${(itemIndex ?? 0) + 1}: "${item.title}".`,
+          `User request: ${prompt}.`,
+          "Preserve the rest of the itinerary unless changing nearby timing/transit is necessary.",
+          "Keep clear start_time and end_time values and update costs/source labels.",
+        ].join(" "),
+        current_itinerary_json: itinerary,
+      }),
+    });
+    const payload = await response.json();
+    setLoading(false);
+
+    if (!response.ok) {
+      setError(payload.error?.message ?? "Unable to replace this stop.");
+      return;
+    }
+
+    onRevised?.(payload.itinerary);
+    setPrompt("");
+    setIsReplacing(false);
+  }
+
   return (
     <GlassCard className="p-4" intensity="subtle">
       <div className="flex flex-col gap-4 sm:flex-row">
@@ -57,9 +111,46 @@ export function ItineraryItemCard({ item }: { item: ItineraryItem }) {
                 View on map
               </Button>
             ) : null}
-            <Button variant="glass" className="min-h-10 px-4">Replace</Button>
-            <Button variant="glass" className="min-h-10 px-4">Save place</Button>
+            {tripId && itinerary ? (
+              <Button
+                variant="glass"
+                className="min-h-10 px-4"
+                onClick={() => setIsReplacing((value) => !value)}
+              >
+                Replace place
+              </Button>
+            ) : null}
           </div>
+          {isReplacing ? (
+            <div className="mt-4 rounded-2xl border border-white/[0.12] bg-white/[0.06] p-4">
+              <p className="mb-2 text-sm font-semibold text-white">
+                What would you like to change about this?
+              </p>
+              <Textarea
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                placeholder="Make this cheaper, swap it for a quieter museum, or choose something closer to lunch..."
+                className="min-h-24"
+              />
+              {error ? <p className="mt-2 text-sm text-rose-100">{error}</p> : null}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  onClick={replacePlace}
+                  disabled={loading || !prompt.trim()}
+                  className="min-h-10 px-4"
+                >
+                  {loading ? "Replacing..." : "Replace with AI"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="min-h-10 px-4"
+                  onClick={() => setIsReplacing(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </GlassCard>

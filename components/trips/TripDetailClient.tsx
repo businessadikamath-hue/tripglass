@@ -12,6 +12,7 @@ import { ItineraryTimeline } from "@/components/trips/ItineraryTimeline";
 import { RevisionPanel } from "@/components/trips/RevisionPanel";
 import { ShareButton } from "@/components/trips/ShareButton";
 import { TripMap } from "@/components/trips/TripMap";
+import { TripSummarySave } from "@/components/trips/TripSummarySave";
 import { WeatherStrip } from "@/components/trips/WeatherStrip";
 import { formatCurrency } from "@/lib/utils/currency";
 import { formatDateRange } from "@/lib/utils/dates";
@@ -101,7 +102,12 @@ export function TripDetailClient({
           </div>
         ) : null}
       </GlassCard>
-      <ItineraryTimeline itinerary={itinerary} />
+      <ItineraryTimeline itinerary={itinerary} tripId={tripId} onRevised={updateItinerary} />
+      <TripSummarySave
+        tripId={tripId}
+        itinerary={itinerary}
+        inputSnapshot={trip.input_snapshot}
+      />
     </div>
   );
 
