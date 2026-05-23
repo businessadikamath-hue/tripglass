@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiError } from "@/lib/server/apiErrors";
 import { reviseItineraryWithGemini } from "@/lib/server/gemini";
-import { buildMockItinerary } from "@/lib/server/mockTrip";
 import { reviseItineraryWithOpenAI } from "@/lib/server/openai";
 import {
   getAIProvider,
@@ -30,11 +29,7 @@ export async function POST(
       return apiError("VALIDATION_ERROR", "The guest itinerary could not be revised.", 422);
     }
     if (!isConfiguredAIProviderAvailable()) {
-      const revised = {
-        ...currentParsed.data,
-        warnings: [`Mock revision note: "${parsed.data.instruction}" was recorded.`, ...currentParsed.data.warnings],
-      };
-      return NextResponse.json({ itinerary: revised, mockMode: true });
+      return apiError("MISSING_API_KEY", "The selected AI provider is not configured.", 500);
     }
     const itinerary =
       getAIProvider() === "gemini"
@@ -46,7 +41,7 @@ export async function POST(
             instruction: parsed.data.instruction,
             itinerary: currentParsed.data,
           });
-    return NextResponse.json({ itinerary, mockMode: false });
+    return NextResponse.json({ itinerary });
   }
 
   const supabase = await createClient();
@@ -67,8 +62,7 @@ export async function POST(
   const record = trip as TripRecord;
   let revised;
   if (!isConfiguredAIProviderAvailable()) {
-    revised = buildMockItinerary(record.input_snapshot);
-    revised.warnings.unshift(`Mock revision mode: "${parsed.data.instruction}"`);
+    return apiError("MISSING_API_KEY", "The selected AI provider is not configured.", 500);
   } else {
     revised =
       getAIProvider() === "gemini"
@@ -96,14 +90,11 @@ export async function POST(
       itinerary_json: revised,
       title: revised.title,
       estimated_total_cost: revised.estimated_total_cost,
-      ai_model: isConfiguredAIProviderAvailable() ? getConfiguredAIModel() : "mock",
+      ai_model: getConfiguredAIModel(),
     })
     .eq("id", tripId)
     .eq("user_id", user.id);
 
   if (updateError) return apiError("DATABASE_ERROR", "Could not save the revised itinerary.", 500);
-  return NextResponse.json({
-    itinerary: revised,
-    mockMode: !isConfiguredAIProviderAvailable(),
-  });
+  return NextResponse.json({ itinerary: revised });
 }

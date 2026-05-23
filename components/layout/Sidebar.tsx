@@ -26,7 +26,7 @@ export function Sidebar() {
           <CalendarDays className="mb-3 h-5 w-5 text-cyan-100" />
           <p className="text-sm font-medium text-white">Plan with confidence</p>
           <p className="mt-1 text-xs leading-5 text-slate-300">
-            Live integrations stay server-side, with mock mode ready for local development.
+            Live AI, maps, weather, and saved trips are wired through production-safe server routes.
           </p>
         </div>
       </div>

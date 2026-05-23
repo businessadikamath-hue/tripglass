@@ -16,7 +16,6 @@ TripGlass is a production-ready MVP for AI travel planning. Users enter a destin
 
 - Landing page, auth, dashboard, settings, trip wizard, trip detail, public share page
 - Server-side API routes for Gemini/OpenAI, private Google Places, weather, sharing, and revisions
-- Optional local mock fallback mode when OpenAI is missing and `ENABLE_MOCK_MODE=true`
 - Manual destination entry when Google Places is missing
 - Interactive browser map when `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is configured
 - Supabase migrations with RLS policies for profiles, trips, itinerary rows, revisions, places, and chat messages
@@ -49,7 +48,6 @@ Useful defaults:
 - `AI_PROVIDER=gemini`
 - `GEMINI_MODEL=gemini-2.5-flash`
 - `OPENAI_MODEL=gpt-5.4-mini`
-- `ENABLE_MOCK_MODE=false` for production, or `true` for local fallback demos
 - `ENABLE_PUBLIC_SHARING=true`
 - `ENABLE_ROUTES_API=false`
 
@@ -109,13 +107,9 @@ npm run build
 4. Deploy.
 5. Add the Vercel domain to your Google browser key restrictions and Supabase auth redirect URLs.
 
-## Mock Mode
-
-Production should use `ENABLE_MOCK_MODE=false` so OpenAI issues surface as clear errors instead of quietly returning demo content. For local demos, `ENABLE_MOCK_MODE=true` lets TripGlass generate realistic fallback itineraries without an OpenAI key. Mock suggestions are clearly labeled and include warnings that prices, hours, and availability are not verified.
-
 ## Common Errors
 
-- `MISSING_API_KEY`: add the missing provider key, or enable mock mode only for local testing.
+- `MISSING_API_KEY`: add the missing provider key in Vercel.
 - `VALIDATION_ERROR`: check destination, duration, travelers, dates, and budget.
 - `UNAUTHORIZED`: sign in or configure Supabase.
 - `GOOGLE_PLACES_ERROR`: verify Places API (New), billing, quotas, and server key restrictions.

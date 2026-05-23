@@ -1,5 +1,10 @@
+"use client";
+
+import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { Textarea } from "@/components/ui/Textarea";
 import { formatCurrency } from "@/lib/utils/currency";
 import type { TripItinerary } from "@/types/trip";
 
@@ -10,8 +15,44 @@ const labels: Record<string, string> = {
   unknown: "Budget unknown",
 };
 
-export function BudgetSummary({ itinerary }: { itinerary: TripItinerary }) {
+export function BudgetSummary({
+  itinerary,
+  tripId,
+  onRevised,
+}: {
+  itinerary: TripItinerary;
+  tripId?: string;
+  onRevised?: (itinerary: TripItinerary) => void;
+}) {
+  const [budgetPrompt, setBudgetPrompt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const breakdown = itinerary.budget_breakdown;
+
+  async function reviseBudget() {
+    if (!tripId || !budgetPrompt.trim()) return;
+    setLoading(true);
+    setError("");
+    const response = await fetch(`/api/trips/${tripId}/revise`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instruction: `Budget edit request: ${budgetPrompt}. Keep the itinerary practical, update budget_breakdown, item estimated_cost values, budget_status, and notes so category totals are useful.`,
+        current_itinerary_json: itinerary,
+      }),
+    });
+    const payload = await response.json();
+    setLoading(false);
+
+    if (!response.ok) {
+      setError(payload.error?.message ?? "Unable to update the budget.");
+      return;
+    }
+
+    onRevised?.(payload.itinerary);
+    setBudgetPrompt("");
+  }
+
   return (
     <GlassCard className="p-5">
       <div className="flex items-center justify-between gap-4">
@@ -37,6 +78,26 @@ export function BudgetSummary({ itinerary }: { itinerary: TripItinerary }) {
         ))}
       </div>
       <p className="mt-4 text-xs leading-5 text-slate-400">{breakdown.notes}</p>
+      {tripId ? (
+        <div className="mt-5 border-t border-white/10 pt-5">
+          <p className="mb-2 text-sm font-semibold text-white">Edit budget</p>
+          <Textarea
+            value={budgetPrompt}
+            onChange={(event) => setBudgetPrompt(event.target.value)}
+            placeholder="Take $40 away from food and add it to activities..."
+            className="min-h-24"
+          />
+          {error ? <p className="mt-2 text-sm text-rose-100">{error}</p> : null}
+          <Button
+            onClick={reviseBudget}
+            disabled={loading || !budgetPrompt.trim()}
+            className="mt-3 w-full"
+            variant="secondary"
+          >
+            {loading ? "Updating budget..." : "Update budget"}
+          </Button>
+        </div>
+      ) : null}
     </GlassCard>
   );
 }

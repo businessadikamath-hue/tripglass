@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     ) {
       return apiError(
         "MISSING_API_KEY",
-        "The selected AI provider is not configured and mock mode is disabled.",
+        "The selected AI provider is not configured.",
         500,
       );
     }

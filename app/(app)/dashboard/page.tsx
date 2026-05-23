@@ -37,7 +37,7 @@ export default async function DashboardPage() {
           <p className="mt-3 text-slate-300">
             {user
               ? "Search, reopen, share, or revise saved itineraries."
-              : "Supabase is not configured or you are not signed in. Mock trips can still be created as guests."}
+              : "Sign in to save and revisit your generated itineraries."}
           </p>
         </div>
         <Button href="/trips/new">

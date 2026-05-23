@@ -65,9 +65,7 @@ export function TripDetailClient({
       <GlassCard className="p-6" intensity="strong">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <Badge variant={itinerary.warnings.some((warning) => warning.toLowerCase().includes("mock")) ? "warning" : "info"}>
-              {itinerary.warnings.some((warning) => warning.toLowerCase().includes("mock")) ? "Mock mode" : "Generated itinerary"}
-            </Badge>
+            <Badge variant="info">Generated itinerary</Badge>
             <h1 className="mt-4 text-3xl font-semibold text-white sm:text-4xl">{itinerary.title}</h1>
             <p className="mt-3 max-w-3xl text-slate-300">{itinerary.summary}</p>
           </div>
@@ -114,7 +112,17 @@ export function TripDetailClient({
           tabs={[
             { id: "itinerary", label: "Itinerary", content: overview },
             { id: "map", label: "Map", content: <TripMap itinerary={itinerary} /> },
-            { id: "budget", label: "Budget", content: <BudgetSummary itinerary={itinerary} /> },
+            {
+              id: "budget",
+              label: "Budget",
+              content: (
+                <BudgetSummary
+                  itinerary={itinerary}
+                  tripId={tripId}
+                  onRevised={updateItinerary}
+                />
+              ),
+            },
             {
               id: "revise",
               label: "Revise",
@@ -127,7 +135,7 @@ export function TripDetailClient({
         <div>{overview}</div>
         <aside className="sticky top-24 h-fit space-y-5">
           <TripMap itinerary={itinerary} />
-          <BudgetSummary itinerary={itinerary} />
+          <BudgetSummary itinerary={itinerary} tripId={tripId} onRevised={updateItinerary} />
           <WeatherStrip itinerary={itinerary} />
           <RevisionPanel tripId={tripId} itinerary={itinerary} onRevised={updateItinerary} />
         </aside>

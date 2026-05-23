@@ -104,11 +104,11 @@ export function TripWizard() {
       const response = await fetch(`/api/places/search?q=${encodeURIComponent(destination)}`);
       const payload = await response.json();
       if (!response.ok) {
-        setPlacesWarning(payload.error?.message ?? "Live place search is unavailable. You can still enter a destination manually.");
+        setPlacesWarning(payload.error?.message ?? "Destination search is temporarily unavailable. You can still enter a destination manually.");
         setSuggestions([]);
         return;
       }
-      setPlacesWarning(payload.warning ?? "");
+      setPlacesWarning("");
       setSuggestions(payload.places ?? []);
     }, 350);
     return () => window.clearTimeout(handle);

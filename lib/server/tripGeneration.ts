@@ -6,7 +6,6 @@ import {
   isGeminiConfigured,
 } from "@/lib/server/gemini";
 import { getCandidatePlaces } from "@/lib/server/googlePlaces";
-import { buildMockItinerary } from "@/lib/server/mockTrip";
 import {
   generateItineraryWithOpenAI,
   getOpenAIModel,
@@ -14,10 +13,6 @@ import {
 } from "@/lib/server/openai";
 import { getDailyWeather } from "@/lib/server/weather";
 import type { TripInput, TripItinerary } from "@/types/trip";
-
-export function isMockModeEnabled() {
-  return process.env.ENABLE_MOCK_MODE === "true";
-}
 
 export function getAIProvider() {
   const provider = process.env.AI_PROVIDER?.trim().toLowerCase();
@@ -60,30 +55,14 @@ export async function generateTrip(input: TripInput) {
   }).catch(() => []);
 
   let itinerary: TripItinerary;
-  let mockMode = false;
 
   if (!isConfiguredAIProviderAvailable()) {
-    if (!isMockModeEnabled()) {
-      throw new Error(`${getAIProvider().toUpperCase()}_KEY_MISSING`);
-    }
-    itinerary = buildMockItinerary(input);
-    mockMode = true;
+    throw new Error(`${getAIProvider().toUpperCase()}_KEY_MISSING`);
   } else {
-    try {
-      itinerary =
-        getAIProvider() === "gemini"
-          ? await generateItineraryWithGemini({ input, candidatePlaces, weather })
-          : await generateItineraryWithOpenAI({ input, candidatePlaces, weather });
-    } catch (error) {
-      if (!isMockModeEnabled()) throw error;
-      console.error(
-        "AI generation failed; using mock fallback.",
-        error instanceof Error ? error.message : "Unknown error",
-      );
-      itinerary = buildMockItinerary(input);
-      itinerary.warnings.unshift("Live AI generation failed; mock fallback was used.");
-      mockMode = true;
-    }
+    itinerary =
+      getAIProvider() === "gemini"
+        ? await generateItineraryWithGemini({ input, candidatePlaces, weather })
+        : await generateItineraryWithOpenAI({ input, candidatePlaces, weather });
   }
 
   const supabase = await createClient();
@@ -118,7 +97,7 @@ export async function generateTrip(input: TripInput) {
         status: "generated",
         input_snapshot: input,
         itinerary_json: itinerary,
-        ai_model: mockMode ? "mock" : getConfiguredAIModel(),
+        ai_model: getConfiguredAIModel(),
         estimated_total_cost: itinerary.estimated_total_cost,
       })
       .select("id")
@@ -132,7 +111,6 @@ export async function generateTrip(input: TripInput) {
     itinerary,
     tripId,
     guestTripId: tripId ? null : `guest-${randomUUID().slice(0, 12)}`,
-    mockMode,
     integrations: {
       openai: isOpenAIConfigured(),
       gemini: isGeminiConfigured(),
