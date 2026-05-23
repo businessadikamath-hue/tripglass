@@ -136,6 +136,28 @@ export function TripWizard() {
   async function submit() {
     setGenerating(true);
     setError("");
+    const currentValues = form.getValues();
+    if (
+      currentValues.destination_text &&
+      (currentValues.destination_lat === null ||
+        currentValues.destination_lat === undefined ||
+        currentValues.destination_lng === null ||
+        currentValues.destination_lng === undefined)
+    ) {
+      const response = await fetch(
+        `/api/places/search?q=${encodeURIComponent(currentValues.destination_text)}`,
+      ).catch(() => null);
+      const payload = response ? await response.json().catch(() => null) : null;
+      const firstPlace = payload?.places?.[0];
+
+      if (firstPlace) {
+        form.setValue("destination_text", firstPlace.name);
+        form.setValue("destination_place_id", firstPlace.place_id);
+        form.setValue("destination_lat", firstPlace.lat);
+        form.setValue("destination_lng", firstPlace.lng);
+      }
+    }
+
     const response = await fetch("/api/trips/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
