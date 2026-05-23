@@ -42,7 +42,7 @@ async function generateStructuredItinerary(prompt: string) {
   const firstText = await requestGeminiJson(prompt);
 
   try {
-    return tripItinerarySchema.parse(JSON.parse(firstText)) as TripItinerary;
+    return tripItinerarySchema.parse(normalizeItineraryCandidate(JSON.parse(firstText))) as TripItinerary;
   } catch (error) {
     if (!(error instanceof z.ZodError)) throw error;
 
@@ -61,8 +61,203 @@ async function generateStructuredItinerary(prompt: string) {
       }),
     );
 
-    return tripItinerarySchema.parse(JSON.parse(repairedText)) as TripItinerary;
+    return tripItinerarySchema.parse(
+      normalizeItineraryCandidate(JSON.parse(repairedText)),
+    ) as TripItinerary;
   }
+}
+
+function toNumberOrNull(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function toStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.map((item) => String(item)).filter(Boolean)
+    : [];
+}
+
+function normalizeBudgetStatus(value: unknown) {
+  const normalized = String(value ?? "unknown")
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  if (
+    normalized === "under_budget" ||
+    normalized === "near_budget" ||
+    normalized === "over_budget" ||
+    normalized === "unknown"
+  ) {
+    return normalized;
+  }
+  return "unknown";
+}
+
+function normalizeCategory(value: unknown) {
+  const normalized = String(value ?? "other").toLowerCase().replace(/[\s-]+/g, "_");
+  const categories = new Set([
+    "attraction",
+    "restaurant",
+    "cafe",
+    "museum",
+    "nature",
+    "shopping",
+    "neighborhood",
+    "transport",
+    "break",
+    "nightlife",
+    "other",
+  ]);
+  return categories.has(normalized) ? normalized : "other";
+}
+
+function normalizePlaceSource(value: unknown) {
+  const normalized = String(value ?? "ai_estimate").toLowerCase();
+  return normalized === "google_places" ||
+    normalized === "ai_estimate" ||
+    normalized === "user_input"
+    ? normalized
+    : "ai_estimate";
+}
+
+function normalizeConfidence(value: unknown) {
+  const normalized = String(value ?? "medium").toLowerCase();
+  return normalized === "low" || normalized === "medium" || normalized === "high"
+    ? normalized
+    : "medium";
+}
+
+function normalizeItineraryCandidate(candidate: unknown) {
+  const itinerary = (candidate && typeof candidate === "object" ? candidate : {}) as Record<
+    string,
+    unknown
+  >;
+  const budgetBreakdown =
+    itinerary.budget_breakdown && typeof itinerary.budget_breakdown === "object"
+      ? (itinerary.budget_breakdown as Record<string, unknown>)
+      : {};
+
+  const days = Array.isArray(itinerary.days) ? itinerary.days : [];
+
+  return {
+    title: String(itinerary.title ?? "Generated trip"),
+    destination: String(itinerary.destination ?? "Destination"),
+    summary: String(itinerary.summary ?? "Generated itinerary."),
+    days_count: Number(itinerary.days_count ?? days.length ?? 1),
+    currency: String(itinerary.currency ?? "USD").slice(0, 3).toUpperCase(),
+    estimated_total_cost: toNumberOrNull(itinerary.estimated_total_cost),
+    budget_status: normalizeBudgetStatus(itinerary.budget_status),
+    best_for: toStringArray(itinerary.best_for),
+    neighborhoods: toStringArray(itinerary.neighborhoods),
+    travel_tips: toStringArray(itinerary.travel_tips),
+    warnings: toStringArray(itinerary.warnings),
+    budget_breakdown: {
+      food: toNumberOrNull(budgetBreakdown.food),
+      activities: toNumberOrNull(budgetBreakdown.activities),
+      transit: toNumberOrNull(budgetBreakdown.transit),
+      miscellaneous: toNumberOrNull(budgetBreakdown.miscellaneous),
+      notes: String(budgetBreakdown.notes ?? "Costs are estimates."),
+    },
+    days: days.map((rawDay, dayIndex) => {
+      const day = (rawDay && typeof rawDay === "object" ? rawDay : {}) as Record<
+        string,
+        unknown
+      >;
+      const weather =
+        day.weather && typeof day.weather === "object"
+          ? (day.weather as Record<string, unknown>)
+          : {};
+      const items = Array.isArray(day.items) ? day.items : [];
+
+      return {
+        day_number: Number(day.day_number ?? dayIndex + 1),
+        date: day.date === undefined ? null : (day.date as string | null),
+        title: String(day.title ?? `Day ${dayIndex + 1}`),
+        summary: String(day.summary ?? "A balanced day of travel planning."),
+        weather: {
+          available: Boolean(weather.available),
+          condition: weather.condition === undefined ? null : (weather.condition as string | null),
+          high_temp_c: toNumberOrNull(weather.high_temp_c),
+          low_temp_c: toNumberOrNull(weather.low_temp_c),
+          packing_tip:
+            weather.packing_tip === undefined ? null : (weather.packing_tip as string | null),
+        },
+        items: items.map((rawItem, itemIndex) => {
+          const item =
+            rawItem && typeof rawItem === "object"
+              ? (rawItem as Record<string, unknown>)
+              : {};
+          const place =
+            item.place && typeof item.place === "object"
+              ? (item.place as Record<string, unknown>)
+              : {};
+          const estimatedCost =
+            item.estimated_cost && typeof item.estimated_cost === "object"
+              ? (item.estimated_cost as Record<string, unknown>)
+              : {};
+
+          return {
+            start_time: String(item.start_time ?? "09:00"),
+            end_time: String(item.end_time ?? "10:30"),
+            title: String(item.title ?? `Stop ${itemIndex + 1}`),
+            description: String(item.description ?? "Suggested itinerary stop."),
+            category: normalizeCategory(item.category),
+            place: {
+              name: place.name === undefined ? null : (place.name as string | null),
+              google_place_id:
+                place.google_place_id === undefined
+                  ? null
+                  : (place.google_place_id as string | null),
+              address: place.address === undefined ? null : (place.address as string | null),
+              lat: toNumberOrNull(place.lat),
+              lng: toNumberOrNull(place.lng),
+              google_maps_url:
+                place.google_maps_url === undefined
+                  ? null
+                  : (place.google_maps_url as string | null),
+              source: normalizePlaceSource(place.source),
+            },
+            estimated_cost: {
+              amount: toNumberOrNull(estimatedCost.amount),
+              currency: String(estimatedCost.currency ?? itinerary.currency ?? "USD")
+                .slice(0, 3)
+                .toUpperCase(),
+              confidence: normalizeConfidence(estimatedCost.confidence),
+              note: String(estimatedCost.note ?? "Estimate only."),
+            },
+            why_it_fits: String(item.why_it_fits ?? "Matches the requested trip style."),
+            transit_note:
+              item.transit_note === undefined ? null : (item.transit_note as string | null),
+            accessibility_note:
+              item.accessibility_note === undefined
+                ? null
+                : (item.accessibility_note as string | null),
+            booking_note:
+              item.booking_note === undefined ? null : (item.booking_note as string | null),
+          };
+        }),
+        backup_options: (Array.isArray(day.backup_options) ? day.backup_options : []).map(
+          (rawBackup) => {
+            const backup =
+              rawBackup && typeof rawBackup === "object"
+                ? (rawBackup as Record<string, unknown>)
+                : {};
+            return {
+              title: String(backup.title ?? "Backup option"),
+              description: String(backup.description ?? "Alternative activity."),
+              best_if: String(backup.best_if ?? "Plans change."),
+              estimated_cost: toNumberOrNull(backup.estimated_cost),
+            };
+          },
+        ),
+      };
+    }),
+  };
 }
 
 async function requestGeminiJson(prompt: string) {
