@@ -114,6 +114,8 @@ export async function getCandidatePlaces(input: {
   const lowerInterests = input.interests.map((item) => item.toLowerCase());
   const queries = [
     `top attractions in ${input.destination}`,
+    `best hotels in ${input.destination}`,
+    `well located hotels in ${input.destination}`,
     `best neighborhoods to explore in ${input.destination}`,
     `best affordable restaurants in ${input.destination}`,
     lowerInterests.includes("museums") ? `best museums in ${input.destination}` : null,

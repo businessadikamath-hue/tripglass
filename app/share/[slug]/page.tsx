@@ -50,7 +50,12 @@ export default async function SharePage({
               <ItineraryTimeline itinerary={trip.itinerary_json} />
             </div>
             <aside className="space-y-5 lg:sticky lg:top-6 lg:h-fit">
-              <TripMap itinerary={trip.itinerary_json} />
+              <TripMap
+                itinerary={trip.itinerary_json}
+                destinationLat={trip.destination_lat}
+                destinationLng={trip.destination_lng}
+                destinationText={trip.destination_text}
+              />
               <BudgetSummary itinerary={trip.itinerary_json} />
             </aside>
           </div>

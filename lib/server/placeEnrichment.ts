@@ -1,0 +1,195 @@
+import { searchPlacesByText } from "@/lib/server/googlePlaces";
+import type { ItineraryItem, TripInput, TripItinerary } from "@/types/trip";
+
+function hasCoordinates(place: { lat: number | null; lng: number | null }) {
+  return typeof place.lat === "number" && typeof place.lng === "number";
+}
+
+function approximateCoordinate(
+  destinationLat: number,
+  destinationLng: number,
+  dayNumber: number,
+  itemIndex: number,
+) {
+  const angle = (((dayNumber + 1) * 47 + (itemIndex + 1) * 73) % 360) * (Math.PI / 180);
+  const distance = 0.008 + (itemIndex % 4) * 0.0025;
+  const lat = destinationLat + Math.cos(angle) * distance;
+  const lng =
+    destinationLng +
+    (Math.sin(angle) * distance) /
+      Math.max(Math.cos((destinationLat * Math.PI) / 180), 0.35);
+
+  return {
+    lat: Number(lat.toFixed(6)),
+    lng: Number(lng.toFixed(6)),
+  };
+}
+
+function mapsSearchUrl(query: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+export async function enrichItineraryPlaces(
+  itinerary: TripItinerary,
+  input: Pick<TripInput, "destination_text">,
+  destinationLat?: number | null,
+  destinationLng?: number | null,
+): Promise<TripItinerary> {
+  const destinationCenter =
+    typeof destinationLat === "number" && typeof destinationLng === "number"
+      ? { lat: destinationLat, lng: destinationLng }
+      : null;
+
+  const days = await Promise.all(
+    itinerary.days.map(async (day) => {
+      const items = await Promise.all(
+        day.items.map(async (item, itemIndex) => {
+          if (hasCoordinates(item.place)) return item;
+
+          const query = [
+            item.place.name,
+            item.place.address,
+            item.title,
+            input.destination_text,
+          ]
+            .filter(Boolean)
+            .join(", ");
+
+          const googlePlace = await searchPlacesByText(
+            query,
+            destinationCenter ?? undefined,
+          )
+            .then((places) => places.find((place) => hasCoordinates(place)))
+            .catch(() => undefined);
+
+          if (googlePlace && googlePlace.lat !== null && googlePlace.lng !== null) {
+            return {
+              ...item,
+              place: {
+                ...item.place,
+                name: googlePlace.name ?? item.place.name,
+                google_place_id: googlePlace.place_id || item.place.google_place_id,
+                address: googlePlace.address ?? item.place.address,
+                lat: googlePlace.lat,
+                lng: googlePlace.lng,
+                google_maps_url: googlePlace.google_maps_url ?? mapsSearchUrl(query),
+                source: "google_places" as const,
+              },
+            };
+          }
+
+          if (!destinationCenter) {
+            return {
+              ...item,
+              place: {
+                ...item.place,
+                google_maps_url: item.place.google_maps_url ?? mapsSearchUrl(query),
+              },
+            };
+          }
+
+          const estimated = approximateCoordinate(
+            destinationCenter.lat,
+            destinationCenter.lng,
+            day.day_number,
+            itemIndex,
+          );
+          return {
+            ...item,
+            place: {
+              ...item.place,
+              lat: estimated.lat,
+              lng: estimated.lng,
+              address: item.place.address ?? `Estimated area in ${input.destination_text}`,
+              google_maps_url: item.place.google_maps_url ?? mapsSearchUrl(query),
+              source:
+                item.place.source === "google_places"
+                  ? ("google_places" as const)
+                  : ("ai_estimate" as const),
+            },
+          };
+        }),
+      );
+
+      return { ...day, items };
+    }),
+  );
+
+  const enriched = { ...itinerary, days };
+  return ensureHotelRecommendation(enriched, input, destinationCenter);
+}
+
+async function ensureHotelRecommendation(
+  itinerary: TripItinerary,
+  input: Pick<TripInput, "destination_text">,
+  destinationCenter: { lat: number; lng: number } | null,
+) {
+  const alreadyHasHotel = itinerary.days.some((day) =>
+    day.items.some(
+      (item) =>
+        item.category === "hotel" ||
+        item.title.toLowerCase().includes("hotel") ||
+        item.place.name?.toLowerCase().includes("hotel"),
+    ),
+  );
+  const accommodationBudget = itinerary.budget_breakdown.accommodation ?? 0;
+
+  if (alreadyHasHotel || accommodationBudget <= 0 || itinerary.days.length === 0) {
+    return itinerary;
+  }
+
+  const query = `well located hotel in ${input.destination_text}`;
+  const googlePlace = await searchPlacesByText(
+    query,
+    destinationCenter ?? undefined,
+  )
+    .then((places) => places.find((place) => hasCoordinates(place)))
+    .catch(() => undefined);
+
+  const fallback = destinationCenter
+    ? approximateCoordinate(destinationCenter.lat, destinationCenter.lng, 1, 99)
+    : { lat: null, lng: null };
+
+  const hotelItem: ItineraryItem = {
+    start_time: "15:00",
+    end_time: "15:30",
+    title: "Suggested hotel base",
+    description:
+      "A practical accommodation base for this itinerary. Verify nightly rates, amenities, and availability before booking.",
+    category: "hotel",
+    place: {
+      name: googlePlace?.name ?? `Central hotel area in ${input.destination_text}`,
+      google_place_id: googlePlace?.place_id ?? null,
+      address:
+        googlePlace?.address ??
+        (destinationCenter ? `Estimated central area in ${input.destination_text}` : null),
+      lat: googlePlace?.lat ?? fallback.lat,
+      lng: googlePlace?.lng ?? fallback.lng,
+      google_maps_url: googlePlace?.google_maps_url ?? mapsSearchUrl(query),
+      source: googlePlace ? "google_places" : "ai_estimate",
+    },
+    estimated_cost: {
+      amount: accommodationBudget,
+      currency: itinerary.currency,
+      confidence: googlePlace ? "medium" : "low",
+      note: "Accommodation estimate only. Not live availability or a booking quote.",
+    },
+    why_it_fits:
+      "Keeps the trip anchored near the planned neighborhoods while preserving the overall budget.",
+    transit_note: "Use this as the daily start/end base when comparing transit times.",
+    accessibility_note: "Confirm room, elevator, and entrance accessibility directly with the hotel.",
+    booking_note: "Check live rates and cancellation policies on the hotel or booking site before reserving.",
+  };
+
+  const [firstDay, ...restDays] = itinerary.days;
+  return {
+    ...itinerary,
+    days: [
+      {
+        ...firstDay,
+        items: [hotelItem, ...firstDay.items],
+      },
+      ...restDays,
+    ],
+  };
+}

@@ -10,6 +10,7 @@ export const itineraryCategorySchema = z.enum([
   "neighborhood",
   "transport",
   "break",
+  "hotel",
   "nightlife",
   "other",
 ]);
@@ -78,6 +79,7 @@ export const tripItinerarySchema = z.object({
   warnings: z.array(z.string()),
   budget_breakdown: z.object({
     food: z.number().nonnegative().nullable(),
+    accommodation: z.number().nonnegative().nullable().default(0),
     activities: z.number().nonnegative().nullable(),
     transit: z.number().nonnegative().nullable(),
     miscellaneous: z.number().nonnegative().nullable(),

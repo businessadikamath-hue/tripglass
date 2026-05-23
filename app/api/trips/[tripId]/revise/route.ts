@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { apiError } from "@/lib/server/apiErrors";
 import { reviseItineraryWithGemini } from "@/lib/server/gemini";
 import { reviseItineraryWithOpenAI } from "@/lib/server/openai";
+import { enrichItineraryPlaces } from "@/lib/server/placeEnrichment";
 import {
   getAIProvider,
   getConfiguredAIModel,
@@ -11,6 +12,20 @@ import { createClient } from "@/lib/supabase/server";
 import { tripItinerarySchema } from "@/lib/validation/itinerarySchema";
 import { revisionInputSchema } from "@/lib/validation/tripInput";
 import type { TripRecord } from "@/types/trip";
+
+function averageItineraryCoordinate(itinerary: { days: Array<{ items: Array<{ place: { lat: number | null; lng: number | null } }> }> }) {
+  const coords = itinerary.days.flatMap((day) =>
+    day.items
+      .map((item) => item.place)
+      .filter((place) => typeof place.lat === "number" && typeof place.lng === "number"),
+  );
+  if (coords.length === 0) return { lat: null, lng: null };
+
+  return {
+    lat: coords.reduce((sum, place) => sum + (place.lat ?? 0), 0) / coords.length,
+    lng: coords.reduce((sum, place) => sum + (place.lng ?? 0), 0) / coords.length,
+  };
+}
 
 export async function POST(
   request: NextRequest,
@@ -31,7 +46,7 @@ export async function POST(
     if (!isConfiguredAIProviderAvailable()) {
       return apiError("MISSING_API_KEY", "The selected AI provider is not configured.", 500);
     }
-    const itinerary =
+    const revised =
       getAIProvider() === "gemini"
         ? await reviseItineraryWithGemini({
             instruction: parsed.data.instruction,
@@ -41,6 +56,13 @@ export async function POST(
             instruction: parsed.data.instruction,
             itinerary: currentParsed.data,
           });
+    const center = averageItineraryCoordinate(currentParsed.data);
+    const itinerary = await enrichItineraryPlaces(
+      revised,
+      { destination_text: revised.destination },
+      center.lat,
+      center.lng,
+    );
     return NextResponse.json({ itinerary });
   }
 
@@ -75,6 +97,13 @@ export async function POST(
             itinerary: record.itinerary_json,
           });
   }
+
+  revised = await enrichItineraryPlaces(
+    revised,
+    { destination_text: record.destination_text },
+    record.destination_lat,
+    record.destination_lng,
+  );
 
   await supabase.from("trip_revisions").insert({
     trip_id: tripId,

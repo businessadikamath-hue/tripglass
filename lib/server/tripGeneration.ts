@@ -7,6 +7,7 @@ import {
   isGeminiConfigured,
 } from "@/lib/server/gemini";
 import { getCandidatePlaces } from "@/lib/server/googlePlaces";
+import { enrichItineraryPlaces } from "@/lib/server/placeEnrichment";
 import {
   generateItineraryWithOpenAI,
   getOpenAIModel,
@@ -78,7 +79,12 @@ export async function generateTrip(input: TripInput) {
         : await generateItineraryWithOpenAI({ input, candidatePlaces, weather });
   }
 
-  itinerary = applyWeatherForecast(itinerary, weather);
+  itinerary = await enrichItineraryPlaces(
+    applyWeatherForecast(itinerary, weather),
+    input,
+    destinationLat,
+    destinationLng,
+  );
 
   const supabase = await createClient();
   let tripId: string | null = null;

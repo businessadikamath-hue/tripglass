@@ -33,9 +33,11 @@ function systemPrompt() {
     "If a detail is estimated, mark it as estimated or low confidence.",
     "Avoid unsafe, illegal, or age-inappropriate suggestions.",
     "Group activities geographically, include food breaks, transit notes, and backup suggestions.",
+    "Include one practical hotel or accommodation recommendation for the trip, but do not claim live room availability, booking availability, or exact nightly prices.",
     "Every itinerary item must have a practical start_time and end_time in HH:mm format so a traveler can follow the plan minute by minute.",
     "Every itinerary item must include an estimated_cost.amount number or 0 if free.",
-    "The budget_breakdown food, activities, transit, and miscellaneous fields must be numbers, not null, and must roughly add up to estimated_total_cost.",
+    "Every place should include latitude and longitude when a candidate place provides them.",
+    "The budget_breakdown food, accommodation, activities, transit, and miscellaneous fields must be numbers, not null, and must roughly add up to estimated_total_cost.",
     "Return valid JSON only. Do not include markdown.",
     "The JSON must match the TripGlass itinerary shape: title, destination, summary, days_count, currency, estimated_total_cost, budget_status, best_for, neighborhoods, travel_tips, warnings, budget_breakdown, and days. Each day must include weather, items, and backup_options. Each item must include place, estimated_cost, why_it_fits, transit_note, accessibility_note, and booking_note.",
   ].join(" ");
@@ -113,6 +115,7 @@ function normalizeCategory(value: unknown) {
     "neighborhood",
     "transport",
     "break",
+    "hotel",
     "nightlife",
     "other",
   ]);
@@ -245,6 +248,7 @@ function normalizeItineraryCandidate(candidate: unknown) {
   const estimatedTotal =
     toNumberOrNull(itinerary.estimated_total_cost) ??
     derivedBreakdown.food +
+      derivedBreakdown.accommodation +
       derivedBreakdown.activities +
       derivedBreakdown.transit +
       derivedBreakdown.miscellaneous;
@@ -263,6 +267,8 @@ function normalizeItineraryCandidate(candidate: unknown) {
     warnings: toStringArray(itinerary.warnings),
     budget_breakdown: {
       food: toNumberOrNull(budgetBreakdown.food) ?? derivedBreakdown.food,
+      accommodation:
+        toNumberOrNull(budgetBreakdown.accommodation) ?? derivedBreakdown.accommodation,
       activities: toNumberOrNull(budgetBreakdown.activities) ?? derivedBreakdown.activities,
       transit: toNumberOrNull(budgetBreakdown.transit) ?? derivedBreakdown.transit,
       miscellaneous:
@@ -276,6 +282,7 @@ function normalizeItineraryCandidate(candidate: unknown) {
 function deriveBudgetBreakdown(days: Array<{ items: Array<{ category: string; estimated_cost: { amount: number | null } }> }>) {
   const totals = {
     food: 0,
+    accommodation: 0,
     activities: 0,
     transit: 0,
     miscellaneous: 0,
@@ -288,6 +295,8 @@ function deriveBudgetBreakdown(days: Array<{ items: Array<{ category: string; es
         totals.food += amount;
       } else if (item.category === "transport") {
         totals.transit += amount;
+      } else if (item.category === "hotel") {
+        totals.accommodation += amount;
       } else if (item.category === "break" || item.category === "other") {
         totals.miscellaneous += amount;
       } else {

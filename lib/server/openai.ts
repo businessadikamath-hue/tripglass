@@ -58,6 +58,10 @@ function systemPrompt() {
     "If a detail is estimated, mark it as estimated or low confidence.",
     "Avoid unsafe, illegal, or age-inappropriate suggestions.",
     "Group activities geographically, include food breaks, transit notes, and backup suggestions.",
+    "Include one practical hotel or accommodation recommendation for the trip, but do not claim live room availability, booking availability, or exact nightly prices.",
+    "Every itinerary item must have practical start_time and end_time values in HH:mm format.",
+    "Every place should include latitude and longitude when candidate place data provides them.",
+    "The budget_breakdown must include numeric food, accommodation, activities, transit, and miscellaneous category estimates.",
   ].join(" ");
 }
 

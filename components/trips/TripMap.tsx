@@ -30,11 +30,24 @@ function loadGoogleMaps(apiKey: string) {
   return window.tripGlassGoogleMapsPromise;
 }
 
-export function TripMap({ itinerary }: { itinerary: TripItinerary }) {
+export function TripMap({
+  itinerary,
+  destinationLat,
+  destinationLng,
+  destinationText,
+}: {
+  itinerary: TripItinerary;
+  destinationLat?: number | null;
+  destinationLng?: number | null;
+  destinationText?: string | null;
+}) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const pins = useMemo(() => getMapPins(itinerary), [itinerary]);
+  const pins = useMemo(
+    () => getMapPins(itinerary, { destinationLat, destinationLng, destinationText }),
+    [destinationLat, destinationLng, destinationText, itinerary],
+  );
 
   useEffect(() => {
     if (!apiKey || !ref.current || pins.length === 0) return;
@@ -66,7 +79,7 @@ export function TripMap({ itinerary }: { itinerary: TripItinerary }) {
             title: pin.title,
           });
           const info = new window.google.maps.InfoWindow({
-            content: `<div style="max-width:220px"><strong>${pin.title}</strong><br/>${pin.start_time} - ${pin.end_time}<br/>${pin.place.name ?? ""}</div>`,
+            content: `<div style="max-width:220px"><strong>${pin.title}</strong><br/>${pin.start_time} - ${pin.end_time}<br/>${pin.place.name ?? ""}<br/><span>${pin.coordinateConfidence === "estimated" ? "Estimated map area" : "Mapped place"}</span></div>`,
           });
           marker.addListener("click", () => info.open({ map, anchor: marker }));
         });

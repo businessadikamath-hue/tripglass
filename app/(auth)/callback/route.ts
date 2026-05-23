@@ -8,11 +8,23 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = await createClient();
-    const { error } = (await supabase?.auth.exchangeCodeForSession(code)) ?? {};
+    const { data, error } = (await supabase?.auth.exchangeCodeForSession(code)) ?? {};
     if (error) {
       const loginUrl = new URL("/login", requestUrl.origin);
       loginUrl.searchParams.set("error", "auth_callback_failed");
       return NextResponse.redirect(loginUrl);
+    }
+
+    const user = data?.user;
+    if (supabase && user) {
+      await supabase.from("profiles").upsert({
+        id: user.id,
+        full_name:
+          typeof user.user_metadata?.full_name === "string"
+            ? user.user_metadata.full_name
+            : null,
+        default_currency: "USD",
+      });
     }
   }
 

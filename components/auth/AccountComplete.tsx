@@ -10,7 +10,7 @@ export function AccountComplete() {
   const router = useRouter();
   const [done, setDone] = useState(false);
 
-  async function createAccount() {
+  async function openDashboard() {
     setDone(true);
     window.setTimeout(() => {
       router.push("/dashboard");
@@ -28,15 +28,15 @@ export function AccountComplete() {
         )}
       </div>
       <h1 className="text-2xl font-semibold text-white">
-        {done ? "Account created" : "Finish creating your account"}
+        {done ? "Opening TripGlass" : "Account verified"}
       </h1>
       <p className="mt-3 text-sm leading-6 text-slate-300">
         {done
           ? "You are signed in. Your trips will be saved to your account."
-          : "Your email is verified. Click below to open TripGlass and save your plans."}
+          : "Your email is verified. Open TripGlass to save and manage your plans."}
       </p>
-      <Button onClick={createAccount} disabled={done} className="mt-6 w-full">
-        {done ? "Redirecting..." : "Create account"}
+      <Button onClick={openDashboard} disabled={done} className="mt-6 w-full">
+        {done ? "Redirecting..." : "Go to dashboard"}
       </Button>
     </GlassCard>
   );

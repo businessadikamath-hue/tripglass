@@ -14,6 +14,7 @@ export const sampleItinerary: TripItinerary = {
   warnings: ["Watch for pickpockets in crowded areas."],
   budget_breakdown: {
     food: 55,
+    accommodation: 0,
     activities: 45,
     transit: 15,
     miscellaneous: 10,

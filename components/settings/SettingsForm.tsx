@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Input } from "@/components/ui/Input";
@@ -15,6 +16,7 @@ export function SettingsForm({
   profile: { full_name?: string | null; home_city?: string | null; default_currency?: string | null } | null;
   integrations: Record<string, boolean>;
 }) {
+  const router = useRouter();
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
   const [homeCity, setHomeCity] = useState(profile?.home_city ?? "");
   const [currency, setCurrency] = useState(profile?.default_currency ?? "USD");
@@ -42,6 +44,17 @@ export function SettingsForm({
     setMessage(error ? error.message : "Settings saved.");
   }
 
+  async function signOut() {
+    const supabase = createClient();
+    if (!supabase) {
+      setMessage("Supabase is not configured yet.");
+      return;
+    }
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       <GlassCard className="p-6">
@@ -66,7 +79,12 @@ export function SettingsForm({
           />
         </div>
         {message ? <p className="mt-4 text-sm text-cyan-100">{message}</p> : null}
-        <Button onClick={save} className="mt-6">Save settings</Button>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Button onClick={save}>Save settings</Button>
+          <Button onClick={signOut} variant="secondary">
+            Log out
+          </Button>
+        </div>
         <div className="mt-8 rounded-2xl border border-rose-300/20 bg-rose-400/10 p-4">
           <p className="font-medium text-rose-100">Delete account</p>
           <p className="mt-1 text-sm text-rose-100/80">

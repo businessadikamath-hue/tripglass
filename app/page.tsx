@@ -4,12 +4,18 @@ import { FeatureGrid } from "@/components/marketing/FeatureGrid";
 import { Hero } from "@/components/marketing/Hero";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { createClient } from "@/lib/supabase/server";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
+
   return (
     <>
       <BackgroundOrbs />
-      <MarketingNavbar />
+      <MarketingNavbar isSignedIn={Boolean(user)} />
       <main>
         <Hero />
         <FeatureGrid />

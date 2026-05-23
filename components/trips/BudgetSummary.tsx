@@ -37,7 +37,7 @@ export function BudgetSummary({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        instruction: `Budget edit request: ${budgetPrompt}. Keep the itinerary practical, update budget_breakdown, item estimated_cost values, budget_status, and notes so category totals are useful.`,
+        instruction: `Budget edit request: ${budgetPrompt}. Keep the itinerary practical, update budget_breakdown including food, accommodation, activities, transit, and miscellaneous, item estimated_cost values, budget_status, and notes so category totals are useful.`,
         current_itinerary_json: itinerary,
       }),
     });
@@ -67,6 +67,7 @@ export function BudgetSummary({
       <div className="mt-5 grid gap-3 text-sm">
         {[
           ["Food", breakdown.food],
+          ["Hotel", breakdown.accommodation],
           ["Activities", breakdown.activities],
           ["Transit", breakdown.transit],
           ["Misc", breakdown.miscellaneous],

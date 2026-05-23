@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Compass } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -9,15 +9,19 @@ import { Input } from "@/components/ui/Input";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
+  const router = useRouter();
   const params = useSearchParams();
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const supabase = useMemo(() => createClient(), []);
   const isSignup = mode === "signup";
 
-  async function sendMagicLink(event: React.FormEvent) {
+  async function handleAuth(event: React.FormEvent) {
     event.preventDefault();
     setError("");
     setMessage("");
@@ -27,29 +31,69 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       return;
     }
 
-    setLoading(true);
-    const next = isSignup
-      ? "/signup/complete"
-      : params.get("redirectedFrom") || "/dashboard";
-    const { error: magicError } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        shouldCreateUser: isSignup,
-        emailRedirectTo: `${window.location.origin}/callback?next=${encodeURIComponent(next)}`,
-      },
-    });
-    setLoading(false);
-
-    if (magicError) {
-      setError(magicError.message);
+    if (isSignup && fullName.trim().length < 2) {
+      setError("Enter your name so your account can be created.");
       return;
     }
 
-    setMessage(
-      isSignup
-        ? "Check your email for your secure account creation link."
-        : "Check your email for your secure sign-in link.",
-    );
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (isSignup && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+
+    if (isSignup) {
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/callback?next=${encodeURIComponent("/dashboard")}`,
+          data: {
+            full_name: fullName.trim(),
+          },
+        },
+      });
+      setLoading(false);
+
+      if (signupError) {
+        setError(signupError.message);
+        return;
+      }
+
+      if (data.user && data.session) {
+        await supabase.from("profiles").upsert({
+          id: data.user.id,
+          full_name: fullName.trim(),
+          default_currency: "USD",
+        });
+        router.push("/dashboard");
+        router.refresh();
+        return;
+      }
+
+      setMessage("Check your email to verify your account. The link will sign you in automatically.");
+      return;
+    }
+
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    setLoading(false);
+
+    if (loginError) {
+      setError(loginError.message);
+      return;
+    }
+
+    router.push(params.get("redirectedFrom") || "/dashboard");
+    router.refresh();
   }
 
   return (
@@ -63,11 +107,20 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </h1>
         <p className="mt-2 text-sm text-slate-300">
           {isSignup
-            ? "Enter your email and we will send a secure account creation link."
-            : "Enter your email and we will send a secure sign-in link."}
+            ? "Create your account once. Your verification email will sign you in automatically."
+            : "Sign in with your email and password. This device stays signed in until you log out."}
         </p>
       </div>
-      <form onSubmit={sendMagicLink} className="space-y-4">
+      <form onSubmit={handleAuth} className="space-y-4">
+        {isSignup ? (
+          <Input
+            label="Name"
+            required
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            placeholder="Your name"
+          />
+        ) : null}
         <Input
           label="Email"
           type="email"
@@ -76,6 +129,24 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           onChange={(event) => setEmail(event.target.value)}
           placeholder="you@example.com"
         />
+        <Input
+          label="Password"
+          type="password"
+          required
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          placeholder="At least 8 characters"
+        />
+        {isSignup ? (
+          <Input
+            label="Confirm password"
+            type="password"
+            required
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            placeholder="Re-enter your password"
+          />
+        ) : null}
         {error ? (
           <p className="rounded-2xl border border-rose-300/25 bg-rose-500/[0.12] p-3 text-sm text-rose-100">
             {error}
@@ -86,12 +157,23 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             {message}
           </p>
         ) : null}
-        <Button type="submit" className="w-full" disabled={loading || !email}>
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={
+            loading ||
+            !email ||
+            !password ||
+            (isSignup && (!fullName.trim() || !confirmPassword))
+          }
+        >
           {loading
-            ? "Sending..."
+            ? isSignup
+              ? "Creating..."
+              : "Signing in..."
             : isSignup
-              ? "Send account link"
-              : "Send sign-in link"}
+              ? "Create account"
+              : "Sign in"}
         </Button>
       </form>
       <p className="mt-6 text-center text-sm text-slate-400">

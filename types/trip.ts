@@ -12,6 +12,7 @@ export type ItineraryCategory =
   | "neighborhood"
   | "transport"
   | "break"
+  | "hotel"
   | "nightlife"
   | "other";
 
@@ -29,6 +30,7 @@ export type TripItinerary = {
   warnings: string[];
   budget_breakdown: {
     food: number | null;
+    accommodation: number | null;
     activities: number | null;
     transit: number | null;
     miscellaneous: number | null;

@@ -117,7 +117,18 @@ export function TripDetailClient({
         <Tabs
           tabs={[
             { id: "itinerary", label: "Itinerary", content: overview },
-            { id: "map", label: "Map", content: <TripMap itinerary={itinerary} /> },
+            {
+              id: "map",
+              label: "Map",
+              content: (
+                <TripMap
+                  itinerary={itinerary}
+                  destinationLat={trip.destination_lat}
+                  destinationLng={trip.destination_lng}
+                  destinationText={trip.destination_text}
+                />
+              ),
+            },
             {
               id: "budget",
               label: "Budget",
@@ -140,7 +151,12 @@ export function TripDetailClient({
       <div className="hidden gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_380px]">
         <div>{overview}</div>
         <aside className="sticky top-24 h-fit space-y-5">
-          <TripMap itinerary={itinerary} />
+          <TripMap
+            itinerary={itinerary}
+            destinationLat={trip.destination_lat}
+            destinationLng={trip.destination_lng}
+            destinationText={trip.destination_text}
+          />
           <BudgetSummary itinerary={itinerary} tripId={tripId} onRevised={updateItinerary} />
           <WeatherStrip itinerary={itinerary} />
           <RevisionPanel tripId={tripId} itinerary={itinerary} onRevised={updateItinerary} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Coffee, Landmark, MapPin, TreePalm, Utensils } from "lucide-react";
+import { Coffee, Hotel, Landmark, MapPin, TreePalm, Utensils } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -19,6 +19,7 @@ const icons = {
   neighborhood: MapPin,
   transport: MapPin,
   break: Coffee,
+  hotel: Hotel,
   nightlife: MapPin,
   other: MapPin,
 };
