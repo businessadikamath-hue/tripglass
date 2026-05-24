@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getSpecificPlaceIssues } from "@/lib/server/itineraryQuality";
 import { tripItinerarySchema } from "@/lib/validation/itinerarySchema";
 import type { NormalizedPlace } from "@/types/places";
 import type { TripInput, TripItinerary } from "@/types/trip";
@@ -31,6 +32,7 @@ function systemPrompt() {
     "Respect travel_radius_minutes and rental_car. If rental_car is no, prefer walking, public transit, rideshare, and geographically tight plans. If yes, include parking/driving notes where useful.",
     "Use provided candidate Google Places whenever possible.",
     "Hotels and restaurants must use specific named places. Do not write generic labels like 'central hotel', 'local bistro', 'restaurant in Montmartre', or 'near your accommodation' as the place name.",
+    "Every day must include at least one specific named restaurant or cafe. The trip must include one specific named hotel recommendation as the lodging base.",
     "If you cannot verify a hotel or restaurant from candidate Google Places, still provide a specific AI suggestion and mark source as ai_estimate with low or medium confidence.",
     "Do not invent exact opening hours, exact prices, or booking availability.",
     "If a detail is estimated, mark it as estimated or low confidence.",
@@ -49,9 +51,10 @@ function systemPrompt() {
 
 async function generateStructuredItinerary(prompt: string) {
   const firstText = await requestGeminiJson(prompt);
+  let itinerary: TripItinerary;
 
   try {
-    return tripItinerarySchema.parse(normalizeItineraryCandidate(JSON.parse(firstText))) as TripItinerary;
+    itinerary = tripItinerarySchema.parse(normalizeItineraryCandidate(JSON.parse(firstText))) as TripItinerary;
   } catch (error) {
     if (!(error instanceof z.ZodError)) throw error;
 
@@ -70,9 +73,37 @@ async function generateStructuredItinerary(prompt: string) {
       }),
     );
 
-    return tripItinerarySchema.parse(
+    itinerary = tripItinerarySchema.parse(
       normalizeItineraryCandidate(JSON.parse(repairedText)),
     ) as TripItinerary;
+  }
+
+  const specificPlaceIssues = getSpecificPlaceIssues(itinerary);
+  if (specificPlaceIssues.length === 0) return itinerary;
+
+  try {
+    const repairedText = await requestGeminiJson(
+      JSON.stringify({
+        task: "Repair this itinerary so hotels and food stops are specific named places. Preserve the JSON schema exactly. Return only the full repaired JSON.",
+        specific_place_issues: specificPlaceIssues,
+        current_itinerary: itinerary,
+        hard_requirements: [
+          "Add one practical specific named hotel recommendation to the first day if missing.",
+          "Every day must include at least one specific named restaurant or cafe.",
+          "Hotel, restaurant, and cafe place.name values must be specific real-sounding place names, not generic descriptions or neighborhoods.",
+          "If a named hotel, restaurant, or cafe is not from candidate Google Places, set place.source to ai_estimate and confidence to low or medium.",
+          "Do not claim live prices, exact opening hours, booking availability, or verification unless the place came from Google Places.",
+        ],
+      }),
+    );
+    const repaired = tripItinerarySchema.parse(
+      normalizeItineraryCandidate(JSON.parse(repairedText)),
+    ) as TripItinerary;
+    return getSpecificPlaceIssues(repaired).length < specificPlaceIssues.length
+      ? repaired
+      : itinerary;
+  } catch {
+    return itinerary;
   }
 }
 

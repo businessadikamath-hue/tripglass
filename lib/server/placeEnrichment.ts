@@ -253,6 +253,10 @@ async function ensureHotelRecommendation(
     destinationCenter,
   );
 
+  if (!googlePlace) {
+    return itinerary;
+  }
+
   const fallback = destinationCenter
     ? approximateCoordinate(destinationCenter.lat, destinationCenter.lng, 1, 99)
     : { lat: null, lng: null };
@@ -265,20 +269,18 @@ async function ensureHotelRecommendation(
       "A practical accommodation base for this itinerary. Verify nightly rates, amenities, and availability before booking.",
     category: "hotel",
     place: {
-      name: googlePlace?.name ?? `Central hotel area in ${input.destination_text}`,
-      google_place_id: googlePlace?.place_id ?? null,
-      address:
-        googlePlace?.address ??
-        (destinationCenter ? `Estimated central area in ${input.destination_text}` : null),
-      lat: googlePlace?.lat ?? fallback.lat,
-      lng: googlePlace?.lng ?? fallback.lng,
-      google_maps_url: googlePlace?.google_maps_url ?? mapsSearchUrl(query),
-      source: googlePlace ? "google_places" : "ai_estimate",
+      name: googlePlace.name,
+      google_place_id: googlePlace.place_id,
+      address: googlePlace.address ?? null,
+      lat: googlePlace.lat ?? fallback.lat,
+      lng: googlePlace.lng ?? fallback.lng,
+      google_maps_url: googlePlace.google_maps_url ?? mapsSearchUrl(query),
+      source: "google_places",
     },
     estimated_cost: {
       amount: accommodationBudget,
       currency: itinerary.currency,
-      confidence: googlePlace ? "medium" : "low",
+      confidence: "medium",
       note: "Accommodation estimate only. Not live availability or a booking quote.",
     },
     why_it_fits:
