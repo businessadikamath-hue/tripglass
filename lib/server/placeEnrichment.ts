@@ -71,7 +71,7 @@ function isAccommodationLike(item: ItineraryItem) {
 
 function shouldResolveSpecificPlace(item: ItineraryItem) {
   if (!isAccommodationLike(item) && !isFoodLike(item)) return false;
-  return item.place.source !== "google_places" || isGenericPlaceName(item.place.name);
+  return true;
 }
 
 function specificPlaceQuery(item: ItineraryItem, destination: string) {
@@ -182,7 +182,18 @@ export async function enrichItineraryPlaces(
             };
           }
 
-          if (hasCoordinates(item.place)) return item;
+          if (hasCoordinates(item.place)) {
+            return {
+              ...item,
+              place: {
+                ...item.place,
+                source:
+                  isAccommodationLike(item) || isFoodLike(item)
+                    ? ("ai_estimate" as const)
+                    : item.place.source,
+              },
+            };
+          }
 
           if (!destinationCenter) {
             return {
