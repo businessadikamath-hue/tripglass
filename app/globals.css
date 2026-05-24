@@ -73,6 +73,35 @@ textarea {
     opacity 180ms ease;
 }
 
+input[type="date"] {
+  color-scheme: dark;
+}
+
+html[data-theme="light"] input[type="date"] {
+  color-scheme: light;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  border-radius: 999px;
+  cursor: pointer;
+  filter: invert(1) opacity(0.78);
+  padding: 4px;
+}
+
+html[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+}
+
+select option {
+  background: #020617;
+  color: #f8fafc;
+}
+
+html[data-theme="light"] select option {
+  background: #f8fbff;
+  color: #0f172a;
+}
+
 ::selection {
   background: rgba(56, 189, 248, 0.35);
 }
@@ -89,6 +118,7 @@ textarea {
   border: 1px solid var(--glass-border);
   color: var(--foreground);
   outline: none;
+  backdrop-filter: blur(18px);
 }
 
 .glass-input:focus {

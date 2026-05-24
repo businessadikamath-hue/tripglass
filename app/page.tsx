@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { BackgroundOrbs } from "@/components/layout/BackgroundOrbs";
 import { MarketingNavbar } from "@/components/layout/Navbar";
 import { FeatureGrid } from "@/components/marketing/FeatureGrid";
@@ -12,10 +13,12 @@ export default async function Home() {
     data: { user },
   } = supabase ? await supabase.auth.getUser() : { data: { user: null } };
 
+  if (user) redirect("/dashboard");
+
   return (
     <>
       <BackgroundOrbs />
-      <MarketingNavbar isSignedIn={Boolean(user)} />
+      <MarketingNavbar isSignedIn={false} />
       <main>
         <Hero />
         <FeatureGrid />

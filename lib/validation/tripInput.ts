@@ -21,6 +21,7 @@ export const tripInputSchema = z
     end_date: z.string().nullable().optional(),
     days_count: z.coerce.number().int().min(1).max(21),
     budget_amount: z.coerce.number().nonnegative().nullable().optional(),
+    include_travel_costs: z.coerce.boolean().default(true),
     currency: z.string().min(3).max(3).default("USD"),
     travelers: z.coerce.number().int().min(1).max(20).default(1),
     pace: z.enum(["relaxed", "balanced", "packed"]).default("balanced"),

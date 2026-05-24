@@ -1,10 +1,8 @@
 import { Plus } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { Input } from "@/components/ui/Input";
-import { TripCard } from "@/components/trips/TripCard";
+import { DashboardTripsClient } from "@/components/trips/DashboardTripsClient";
 import { createClient } from "@/lib/supabase/server";
 import type { TripRecord } from "@/types/trip";
 
@@ -57,23 +55,7 @@ export default async function DashboardPage() {
           </GlassCard>
         ))}
       </div>
-      <div className="mb-6 grid gap-3 sm:grid-cols-[1fr_auto]">
-        <Input placeholder="Search saved trips" aria-label="Search saved trips" />
-        <Button variant="secondary">All trips</Button>
-      </div>
-      {typedTrips.length ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {typedTrips.map((trip) => (
-            <TripCard key={trip.id} trip={trip} />
-          ))}
-        </div>
-      ) : (
-        <EmptyState
-          title="No trips yet. Build your first itinerary."
-          description="Start with a destination and TripGlass will produce a polished plan with AI suggestions, maps, costs, and weather context."
-          action={<Button href="/trips/new">Plan a Trip</Button>}
-        />
-      )}
+      <DashboardTripsClient trips={typedTrips} />
     </AppShell>
   );
 }

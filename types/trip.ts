@@ -126,6 +126,7 @@ export type TripInput = {
   end_date?: string | null;
   days_count: number;
   budget_amount?: number | null;
+  include_travel_costs?: boolean;
   currency: string;
   travelers: number;
   pace: "relaxed" | "balanced" | "packed";

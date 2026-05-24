@@ -191,6 +191,7 @@ function roundToTen(value: number) {
 }
 
 function estimateAccommodation(input: TripInput) {
+  if (input.include_travel_costs === false) return 0;
   const roomCount = Math.max(1, Math.ceil(input.travelers / 2));
   const nights = Math.max(1, input.days_count - 1);
   const baseline = roomCount * nights * 170;
@@ -201,6 +202,7 @@ function estimateAccommodation(input: TripInput) {
 }
 
 function estimateFlights(input: TripInput) {
+  if (input.include_travel_costs === false) return 0;
   const perTraveler = input.starting_city?.trim() ? 360 : 280;
   const baseline = perTraveler * input.travelers;
   if (!input.budget_amount) return roundToTen(baseline);
@@ -219,9 +221,12 @@ function getBudgetStatus(total: number, budget?: number | null): BudgetStatus {
 
 function ensureBudgetPlanningEstimates(itinerary: TripItinerary, input: TripInput) {
   const breakdown = itinerary.budget_breakdown;
-  const accommodation = breakdown.accommodation && breakdown.accommodation > 0
-    ? breakdown.accommodation
-    : estimateAccommodation(input);
+  const accommodation =
+    input.include_travel_costs === false
+      ? 0
+      : breakdown.accommodation && breakdown.accommodation > 0
+        ? breakdown.accommodation
+        : estimateAccommodation(input);
   const localTransit = breakdown.transit ?? 0;
   const flightEstimate = estimateFlights(input);
   const transit = localTransit >= flightEstimate ? localTransit : localTransit + flightEstimate;
@@ -231,8 +236,12 @@ function ensureBudgetPlanningEstimates(itinerary: TripItinerary, input: TripInpu
   const estimatedTotal = food + accommodation + activities + transit + miscellaneous;
   const noteParts = [
     breakdown.notes,
-    `Hotel is a planning estimate, not live room pricing.`,
-    `Transit includes an estimated flight allowance of ${input.currency} ${flightEstimate}; verify live fares before booking.`,
+    input.include_travel_costs === false
+      ? "Flight and hotel costs were excluded from this budget by user preference."
+      : `Hotel is a planning estimate, not live room pricing.`,
+    input.include_travel_costs === false
+      ? null
+      : `Transit includes an estimated flight allowance of ${input.currency} ${flightEstimate}; verify live fares before booking.`,
   ].filter(Boolean);
 
   return {
@@ -243,8 +252,11 @@ function ensureBudgetPlanningEstimates(itinerary: TripItinerary, input: TripInpu
       new Set([
         ...itinerary.warnings,
         "Hotel and flight costs are planning estimates, not live prices or availability.",
+        input.include_travel_costs === false
+          ? "Flight and hotel costs are not included in this budget."
+          : "",
       ]),
-    ),
+    ).filter(Boolean),
     budget_breakdown: {
       ...breakdown,
       food,

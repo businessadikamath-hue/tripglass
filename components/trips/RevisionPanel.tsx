@@ -4,6 +4,7 @@ import { useState } from "react";
 import { WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { OperationProgress } from "@/components/ui/OperationProgress";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/Toast";
 import type { TripItinerary } from "@/types/trip";
@@ -15,6 +16,13 @@ const suggestions = [
   "Add rainy-day alternatives",
   "Make it more romantic",
   "Avoid long walks",
+];
+
+const revisionSteps = [
+  "Reading the current itinerary",
+  "Applying your request",
+  "Rechecking timing and budget",
+  "Updating map-ready stops",
 ];
 
 export function RevisionPanel({
@@ -76,8 +84,16 @@ export function RevisionPanel({
         onChange={(event) => setInstruction(event.target.value)}
         placeholder="Replace expensive restaurants and make Day 3 slower..."
       />
+      {loading ? (
+        <OperationProgress steps={revisionSteps} estimatedSeconds={24} className="mt-4" />
+      ) : null}
       {error ? <p className="mt-3 text-sm text-rose-100">{error}</p> : null}
-      <Button onClick={revise} disabled={loading || !instruction.trim()} className="mt-4 w-full">
+      <Button
+        onClick={revise}
+        disabled={loading || !instruction.trim()}
+        loading={loading}
+        className="mt-4 w-full"
+      >
         {loading ? "Revising..." : "Update itinerary"}
       </Button>
     </GlassCard>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { OperationProgress } from "@/components/ui/OperationProgress";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatCurrency } from "@/lib/utils/currency";
 import type { TripItinerary } from "@/types/trip";
@@ -14,6 +15,13 @@ const labels: Record<string, string> = {
   over_budget: "Over budget",
   unknown: "Budget unknown",
 };
+
+const budgetRevisionSteps = [
+  "Reading your budget request",
+  "Rebalancing categories",
+  "Adjusting item costs",
+  "Saving the updated plan",
+];
 
 export function BudgetSummary({
   itinerary,
@@ -144,9 +152,13 @@ export function BudgetSummary({
             className="min-h-24"
           />
           {error ? <p className="mt-2 text-sm text-rose-100">{error}</p> : null}
+          {loading ? (
+            <OperationProgress steps={budgetRevisionSteps} estimatedSeconds={22} className="mt-3" />
+          ) : null}
           <Button
             onClick={reviseBudget}
             disabled={loading || !budgetPrompt.trim()}
+            loading={loading}
             className="mt-3 w-full"
             variant="secondary"
           >

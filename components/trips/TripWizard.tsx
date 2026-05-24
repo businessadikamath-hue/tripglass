@@ -8,6 +8,7 @@ import { ArrowLeft, ArrowRight, MapPin, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Badge } from "@/components/ui/Badge";
@@ -57,6 +58,11 @@ export function TripWizard() {
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState<NormalizedPlace[]>([]);
   const [placesWarning, setPlacesWarning] = useState("");
+  const [budgetWarning, setBudgetWarning] = useState<{
+    estimate: number;
+    budget: number;
+    overBy: number;
+  } | null>(null);
 
   const form = useForm<TripInputFormValues, unknown, TripInputSchema>({
     resolver: zodResolver(tripInputSchema),
@@ -70,6 +76,7 @@ export function TripWizard() {
       end_date: "",
       days_count: 3,
       budget_amount: null,
+      include_travel_costs: true,
       currency: "USD",
       travelers: 2,
       pace: "balanced",
@@ -92,6 +99,7 @@ export function TripWizard() {
   const startDate = useWatch({ control: form.control, name: "start_date" });
   const endDate = useWatch({ control: form.control, name: "end_date" });
   const watchedInterests = useWatch({ control: form.control, name: "interests" });
+  const includeTravelCosts = useWatch({ control: form.control, name: "include_travel_costs" });
   const interests = Array.isArray(watchedInterests) ? watchedInterests : [];
 
   useEffect(() => {
@@ -135,7 +143,46 @@ export function TripWizard() {
     );
   }
 
-  async function submit() {
+  function estimateMinimumBudget() {
+    const data = form.getValues();
+    const days = Number(data.days_count || 1);
+    const travelers = Number(data.travelers || 1);
+    const nights = Math.max(1, days - 1);
+    const paceMultiplier =
+      data.pace === "packed" ? 1.2 : data.pace === "relaxed" ? 0.9 : 1;
+    const style = String(data.travel_style ?? "").toLowerCase();
+    const businessMultiplier = style.includes("business") ? 1.18 : 1;
+    const luxuryMultiplier = interests.includes("Luxury") ? 1.35 : 1;
+    const budgetFriendlyMultiplier = interests.includes("Budget-friendly") ? 0.82 : 1;
+    const dailyFood = 55 * travelers * days;
+    const dailyActivities = 45 * travelers * days * paceMultiplier;
+    const localTransit = (data.rental_car === "yes" ? 55 : 24) * days;
+    const misc = 25 * days;
+    const travelCosts =
+      data.include_travel_costs === false
+        ? 0
+        : Math.ceil(travelers / 2) * nights * 170 + (data.starting_city ? 360 : 280) * travelers;
+
+    return Math.round(
+      (dailyFood + dailyActivities + localTransit + misc + travelCosts) *
+        businessMultiplier *
+        luxuryMultiplier *
+        budgetFriendlyMultiplier,
+    );
+  }
+
+  async function submit(forceOverBudget = false) {
+    const budget = Number(form.getValues("budget_amount") ?? 0);
+    const estimate = estimateMinimumBudget();
+    if (!forceOverBudget && budget > 0 && estimate > budget * 1.25) {
+      setBudgetWarning({
+        estimate,
+        budget,
+        overBy: estimate - budget,
+      });
+      return;
+    }
+
     setGenerating(true);
     setError("");
     const currentValues = form.getValues();
@@ -207,7 +254,7 @@ export function TripWizard() {
         </div>
       </div>
 
-      <form onSubmit={form.handleSubmit(submit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(() => submit())} className="space-y-8">
         {step === 0 ? (
           <div className="grid gap-5">
             <div className="relative">
@@ -251,7 +298,18 @@ export function TripWizard() {
             <Input label="Start date" type="date" {...form.register("start_date")} />
             <Input label="End date" type="date" {...form.register("end_date")} error={form.formState.errors.end_date?.message} />
             <Input label="Duration in days" type="number" min={1} max={21} {...form.register("days_count")} error={form.formState.errors.days_count?.message} />
-            <Input label="Budget amount" type="number" min={0} placeholder="2500" {...form.register("budget_amount", { valueAsNumber: true })} />
+            <div className="grid gap-3">
+              <Input label="Budget amount" type="number" min={0} placeholder="2500" {...form.register("budget_amount", { valueAsNumber: true })} />
+              <label className="flex items-center gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.06] px-4 py-3 text-sm text-slate-200">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-white/20 bg-white/10 accent-cyan-300"
+                  {...form.register("include_travel_costs")}
+                  checked={Boolean(includeTravelCosts)}
+                />
+                Include flight and hotel
+              </label>
+            </div>
             <Select label="Currency" {...form.register("currency")} options={["USD", "EUR", "GBP", "CAD", "AUD", "JPY"].map((value) => ({ value, label: value }))} />
             <Input label="Travelers" type="number" min={1} {...form.register("travelers")} />
             <div className="sm:col-span-2 flex flex-wrap gap-2">
@@ -369,6 +427,47 @@ export function TripWizard() {
           )}
         </div>
       </form>
+      <Modal
+        open={Boolean(budgetWarning)}
+        title="Budget may be too low"
+        onClose={() => setBudgetWarning(null)}
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-6 text-slate-300">
+            Based on your trip length, travelers, pace, and preferences, this plan is likely to cost about{" "}
+            <span className="font-semibold text-white">
+              {values.currency} {budgetWarning?.estimate.toLocaleString()}
+            </span>
+            . That is more than 25% above your budget of{" "}
+            <span className="font-semibold text-white">
+              {values.currency} {budgetWarning?.budget.toLocaleString()}
+            </span>
+            .
+          </p>
+          <div className="rounded-2xl border border-amber-300/25 bg-amber-400/[0.12] p-3 text-sm text-amber-100">
+            You can edit preferences to lower the cost, or proceed knowing the itinerary may exceed budget.
+          </div>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setBudgetWarning(null);
+                setStep(1);
+              }}
+            >
+              Edit preferences
+            </Button>
+            <Button
+              onClick={() => {
+                setBudgetWarning(null);
+                void submit(true);
+              }}
+            >
+              Proceed and exceed budget
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </GlassCard>
   );
 }

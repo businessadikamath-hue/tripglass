@@ -5,6 +5,7 @@ import { Coffee, Hotel, Landmark, MapPin, TreePalm, Utensils } from "lucide-reac
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { OperationProgress } from "@/components/ui/OperationProgress";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatCurrency } from "@/lib/utils/currency";
 import type { ItineraryItem, TripItinerary } from "@/types/trip";
@@ -23,6 +24,13 @@ const icons = {
   nightlife: MapPin,
   other: MapPin,
 };
+
+const replacementSteps = [
+  "Understanding this stop",
+  "Finding a better fit",
+  "Reworking timing",
+  "Updating the itinerary",
+];
 
 export function ItineraryItemCard({
   item,
@@ -135,10 +143,14 @@ export function ItineraryItemCard({
                 className="min-h-24"
               />
               {error ? <p className="mt-2 text-sm text-rose-100">{error}</p> : null}
+              {loading ? (
+                <OperationProgress steps={replacementSteps} estimatedSeconds={24} className="mt-3" />
+              ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button
                   onClick={replacePlace}
                   disabled={loading || !prompt.trim()}
+                  loading={loading}
                   className="min-h-10 px-4"
                 >
                   {loading ? "Replacing..." : "Replace with AI"}

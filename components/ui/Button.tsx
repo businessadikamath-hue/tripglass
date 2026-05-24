@@ -1,11 +1,16 @@
+"use client";
+
 import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost" | "danger" | "glass";
   href?: string;
   children: ReactNode;
+  loading?: boolean;
 };
 
 const variants = {
@@ -23,12 +28,15 @@ export function Button({
   variant = "primary",
   href,
   children,
+  loading = false,
   ...props
 }: ButtonProps) {
+  const [navigating, setNavigating] = useState(false);
+  const busy = loading || navigating;
   const classes = cn(
     "inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border px-5 py-2.5 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:pointer-events-none disabled:opacity-50",
     variants[variant],
-    props.disabled ? "" : "hover:-translate-y-0.5 active:translate-y-0",
+    props.disabled || busy ? "" : "hover:-translate-y-0.5 active:translate-y-0",
     className,
   );
 
@@ -38,16 +46,22 @@ export function Button({
       <Link
         href={href}
         className={classes}
+        onClick={() => {
+          if (!external) setNavigating(true);
+        }}
         target={external ? "_blank" : undefined}
         rel={external ? "noopener noreferrer" : undefined}
+        aria-busy={busy}
       >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
         {children}
       </Link>
     );
   }
 
   return (
-    <button className={classes} {...props}>
+    <button className={classes} aria-busy={busy} {...props}>
+      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
       {children}
     </button>
   );
