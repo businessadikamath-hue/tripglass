@@ -1,6 +1,6 @@
 export type BudgetStatus = "under_budget" | "near_budget" | "over_budget" | "unknown";
 
-export type PlaceSource = "google_places" | "ai_estimate" | "user_input";
+export type PlaceSource = "google_places" | "amadeus" | "ai_estimate" | "user_input";
 
 export type ItineraryCategory =
   | "attraction"
@@ -35,6 +35,33 @@ export type TripItinerary = {
     transit: number | null;
     miscellaneous: number | null;
     notes: string;
+  };
+  live_pricing?: {
+    provider: "amadeus";
+    checked_at: string;
+    flight_offer: {
+      id: string;
+      origin_iata: string;
+      destination_iata: string;
+      total_amount: number;
+      currency: string;
+      validating_airline_codes: string[];
+      departure_at: string | null;
+      arrival_at: string | null;
+      last_ticketing_date: string | null;
+    } | null;
+    hotel_offer: {
+      id: string;
+      hotel_id: string;
+      hotel_name: string;
+      total_amount: number;
+      currency: string;
+      check_in_date: string;
+      check_out_date: string;
+      lat: number | null;
+      lng: number | null;
+    } | null;
+    notes: string[];
   };
   days: ItineraryDay[];
 };

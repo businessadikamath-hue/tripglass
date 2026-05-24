@@ -56,6 +56,7 @@ function systemPrompt() {
     "Respect budget, pace, dates, interests, constraints, accessibility needs, and group type.",
     "Respect travel_radius_minutes and rental_car. If rental_car is no, prefer walking, public transit, rideshare, and geographically tight plans. If yes, include parking/driving notes where useful.",
     "Use provided candidate Google Places whenever possible.",
+    "Use provided Amadeus travel offers for live flight and hotel pricing when available, but always say prices can change before booking.",
     "Hotels and restaurants must use specific named places. Do not write generic labels like 'central hotel', 'local bistro', 'restaurant in Montmartre', or 'near your accommodation' as the place name.",
     "Every day must include at least one specific named restaurant or cafe. The trip must include one specific named hotel recommendation as the lodging base.",
     "If you cannot verify a hotel or restaurant from candidate Google Places, still provide a specific AI suggestion and mark source as ai_estimate with low or medium confidence.",
@@ -123,6 +124,7 @@ export async function generateItineraryWithOpenAI(args: {
   input: TripInput;
   candidatePlaces: NormalizedPlace[];
   weather: DailyWeather[];
+  travelOffers?: unknown;
 }) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const response = await client.responses.create({
@@ -135,6 +137,7 @@ export async function generateItineraryWithOpenAI(args: {
           task: "Create a TripGlass itinerary. Return JSON matching the schema exactly.",
           user_input: args.input,
           candidate_google_places: args.candidatePlaces,
+          amadeus_travel_offers: args.travelOffers ?? null,
           weather_forecast: args.weather,
         }),
       },

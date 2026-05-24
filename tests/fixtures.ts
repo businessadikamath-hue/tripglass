@@ -20,6 +20,33 @@ export const sampleItinerary: TripItinerary = {
     miscellaneous: 10,
     notes: "All costs are planning estimates.",
   },
+  live_pricing: {
+    provider: "amadeus",
+    checked_at: "2026-05-24T12:00:00.000Z",
+    flight_offer: {
+      id: "1",
+      origin_iata: "JFK",
+      destination_iata: "CDG",
+      total_amount: 540,
+      currency: "USD",
+      validating_airline_codes: ["AF"],
+      departure_at: "2026-06-01T20:00:00",
+      arrival_at: "2026-06-02T09:20:00",
+      last_ticketing_date: null,
+    },
+    hotel_offer: {
+      id: "H1",
+      hotel_id: "HLPAR001",
+      hotel_name: "Hotel Example",
+      total_amount: 320,
+      currency: "USD",
+      check_in_date: "2026-06-01",
+      check_out_date: "2026-06-02",
+      lat: 48.8566,
+      lng: 2.3522,
+    },
+    notes: ["Prices can change before booking."],
+  },
   days: [
     {
       day_number: 1,

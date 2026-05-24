@@ -8,6 +8,7 @@ TripGlass is a production-ready MVP for AI travel planning. Users enter a destin
 - Supabase Auth, Postgres, and Row Level Security
 - Gemini API or OpenAI Responses API with structured JSON output
 - Google Places API (New) and Maps JavaScript API
+- Optional Amadeus Self-Service APIs for live flight and hotel offers
 - Open-Meteo weather forecasts
 - Zod, React Hook Form, Lucide React, date-fns
 - Vitest validation tests
@@ -42,6 +43,13 @@ Required for full live mode:
 - `GEMINI_API_KEY` if `AI_PROVIDER=gemini`, or `OPENAI_API_KEY` if `AI_PROVIDER=openai`
 - `GOOGLE_MAPS_API_KEY`
 - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
+
+Optional for live travel pricing:
+
+- `AMADEUS_CLIENT_ID`
+- `AMADEUS_CLIENT_SECRET`
+- `AMADEUS_ENV=test`
+- `ENABLE_AMADEUS_FLIGHTS=true`
 
 Useful defaults:
 
@@ -82,6 +90,27 @@ Gemini is the recommended free-tier provider for launching TripGlass without buy
 
 If Google keys are missing, live autocomplete and maps are disabled with visible warnings. Manual destination entry still works.
 
+## Amadeus Setup
+
+Use Amadeus only for the pieces TripGlass does not already get from Google: flight offers and hotel room offers.
+
+1. Go to [developers.amadeus.com](https://developers.amadeus.com/).
+2. Register or sign in.
+3. Open `My Self-Service Workspace`.
+4. Click `Create New App`.
+5. Copy the app's API Key into `AMADEUS_CLIENT_ID`.
+6. Copy the app's API Secret into `AMADEUS_CLIENT_SECRET`.
+7. Keep `AMADEUS_ENV=test` while developing. Switch to `production` only after Amadeus approves/activates production access for your app.
+8. Add those variables in Vercel Project Settings, then redeploy.
+
+When Amadeus is configured, TripGlass calls server-side Amadeus APIs only. It uses:
+
+- Airport & City Search to resolve city names to IATA codes
+- Flight Offers Search for airline, timing, and fare offers
+- Hotel List by Geocode plus Hotel Offers for hotel names, room offer prices, and availability windows
+
+Prices are shown as live offers checked at generation time, not guaranteed booking prices. Users should still verify final fare, taxes, rules, room terms, and availability before booking.
+
 ## OpenAI Setup
 
 1. Create an OpenAI API key.
@@ -113,12 +142,13 @@ npm run build
 - `VALIDATION_ERROR`: check destination, duration, travelers, dates, and budget.
 - `UNAUTHORIZED`: sign in or configure Supabase.
 - `GOOGLE_PLACES_ERROR`: verify Places API (New), billing, quotas, and server key restrictions.
+- `AMADEUS_ERROR`: verify Amadeus credentials, `AMADEUS_ENV`, quota, date range, and whether the route/hotel market is available in your Amadeus environment.
 - `OPENAI_ERROR`: verify the selected AI provider key, model name, quota, and logs.
 
 ## Future Improvements
 
 - Routes API travel-time enrichment and caching
-- Flight and hotel search through optional Amadeus integration
+- Booking handoff/deep links after a user selects a flight or hotel offer
 - Full input-level trip editing
 - Calendar export and PDF itinerary export
 - Place replacement workflow with richer Google details

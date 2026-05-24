@@ -41,6 +41,7 @@ export function ItineraryItemCard({
 }) {
   const Icon = icons[item.category] ?? MapPin;
   const verified = item.place.source === "google_places";
+  const liveOffer = item.place.source === "amadeus";
   const [isReplacing, setIsReplacing] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -89,8 +90,8 @@ export function ItineraryItemCard({
               <Icon className="h-4 w-4 text-cyan-100" />
             </span>
             <h3 className="text-lg font-semibold text-white">{item.title}</h3>
-            <Badge variant={verified ? "success" : item.place.source === "ai_estimate" ? "warning" : "info"}>
-              {verified ? "Verified place" : item.place.source === "ai_estimate" ? "AI estimate" : "User input"}
+            <Badge variant={verified || liveOffer ? "success" : item.place.source === "ai_estimate" ? "warning" : "info"}>
+              {verified ? "Verified place" : liveOffer ? "Live offer" : item.place.source === "ai_estimate" ? "AI estimate" : "User input"}
             </Badge>
           </div>
           <p className="mt-3 text-sm leading-6 text-slate-300">{item.description}</p>

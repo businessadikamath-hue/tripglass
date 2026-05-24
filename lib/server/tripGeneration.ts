@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { getAmadeusTravelOffers, isAmadeusConfigured } from "@/lib/server/amadeus";
 import { createClient } from "@/lib/supabase/server";
 import { searchDestinationsFallback } from "@/lib/server/geocoding";
 import {
@@ -14,7 +15,9 @@ import {
   isOpenAIConfigured,
 } from "@/lib/server/openai";
 import { getDailyWeather } from "@/lib/server/weather";
+import type { AmadeusTravelOffers } from "@/types/amadeus";
 import type { BudgetStatus, TripInput, TripItinerary } from "@/types/trip";
+import type { LivePricingSummary } from "@/types/travel";
 
 export function getAIProvider() {
   const provider = process.env.AI_PROVIDER?.trim().toLowerCase();
@@ -70,6 +73,24 @@ export async function generateTrip(input: TripInput) {
     rentalCar: input.rental_car,
   }).catch(() => []);
 
+  const travelOffers = await getAmadeusTravelOffers(
+    input,
+    destinationLat,
+    destinationLng,
+  ).catch(
+    (): AmadeusTravelOffers => ({
+      provider: "amadeus",
+      configured: isAmadeusConfigured(),
+      enabled: false,
+      checkedAt: new Date().toISOString(),
+      originIata: null,
+      destinationIata: null,
+      flightOffers: [],
+      hotelOffers: [],
+      warnings: ["Amadeus live offer lookup failed."],
+    }),
+  );
+
   let itinerary: TripItinerary;
 
   if (!isConfiguredAIProviderAvailable()) {
@@ -77,8 +98,18 @@ export async function generateTrip(input: TripInput) {
   } else {
     itinerary =
       getAIProvider() === "gemini"
-        ? await generateItineraryWithGemini({ input, candidatePlaces, weather })
-        : await generateItineraryWithOpenAI({ input, candidatePlaces, weather });
+        ? await generateItineraryWithGemini({
+            input,
+            candidatePlaces,
+            weather,
+            travelOffers,
+          })
+        : await generateItineraryWithOpenAI({
+            input,
+            candidatePlaces,
+            weather,
+            travelOffers,
+          });
   }
 
   itinerary = ensureBudgetPlanningEstimates(
@@ -92,6 +123,8 @@ export async function generateTrip(input: TripInput) {
     destinationLat,
     destinationLng,
   );
+
+  itinerary = applyLiveTravelOffers(itinerary, input, travelOffers);
 
   const supabase = await createClient();
   let tripId: string | null = null;
@@ -144,6 +177,9 @@ export async function generateTrip(input: TripInput) {
       gemini: isGeminiConfigured(),
       aiProvider: getAIProvider(),
       googlePlaces: Boolean(process.env.GOOGLE_MAPS_API_KEY),
+      amadeus: travelOffers.configured,
+      amadeusLiveOffers:
+        travelOffers.flightOffers.length > 0 || travelOffers.hotelOffers.length > 0,
       supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
       weather: true,
     },
@@ -215,6 +251,203 @@ function ensureBudgetPlanningEstimates(itinerary: TripItinerary, input: TripInpu
       accommodation,
       activities,
       transit,
+      miscellaneous,
+      notes: noteParts.join(" "),
+    },
+  };
+}
+
+function firstFlightSegment(offers: AmadeusTravelOffers) {
+  return offers.flightOffers[0]?.itineraries[0]?.segments[0] ?? null;
+}
+
+function livePricingSummary(offers: AmadeusTravelOffers): LivePricingSummary | undefined {
+  const flight = offers.flightOffers[0];
+  const hotel = offers.hotelOffers[0];
+  if (!flight && !hotel) return undefined;
+
+  const firstSegment = firstFlightSegment(offers);
+  const lastOutboundSegments = offers.flightOffers[0]?.itineraries[0]?.segments ?? [];
+  const lastSegment = lastOutboundSegments[lastOutboundSegments.length - 1] ?? null;
+
+  return {
+    provider: "amadeus",
+    checked_at: offers.checkedAt,
+    flight_offer: flight
+      ? {
+          id: flight.id,
+          origin_iata: flight.originIata,
+          destination_iata: flight.destinationIata,
+          total_amount: flight.totalAmount,
+          currency: flight.currency,
+          validating_airline_codes: flight.validatingAirlineCodes,
+          departure_at: firstSegment?.departureAt ?? null,
+          arrival_at: lastSegment?.arrivalAt ?? null,
+          last_ticketing_date: flight.lastTicketingDate,
+        }
+      : null,
+    hotel_offer: hotel
+      ? {
+          id: hotel.id,
+          hotel_id: hotel.hotelId,
+          hotel_name: hotel.hotelName,
+          total_amount: hotel.totalAmount,
+          currency: hotel.currency,
+          check_in_date: hotel.checkInDate,
+          check_out_date: hotel.checkOutDate,
+          lat: hotel.lat,
+          lng: hotel.lng,
+        }
+      : null,
+    notes: [
+      "Flight and hotel prices came from Amadeus live offers at generation time.",
+      "Prices, fare rules, room availability, and cancellation terms can change before booking.",
+      ...offers.warnings,
+    ],
+  };
+}
+
+function applyLiveTravelOffers(
+  itinerary: TripItinerary,
+  input: TripInput,
+  offers: AmadeusTravelOffers,
+): TripItinerary {
+  const flight = offers.flightOffers[0];
+  const hotel = offers.hotelOffers[0];
+  const livePricing = livePricingSummary(offers);
+  if (!flight && !hotel) {
+    return offers.warnings.length
+      ? {
+          ...itinerary,
+          warnings: Array.from(new Set([...itinerary.warnings, ...offers.warnings])),
+        }
+      : itinerary;
+  }
+
+  const estimatedFlight = estimateFlights(input);
+  const currentTransit = itinerary.budget_breakdown.transit ?? 0;
+  const localTransit = flight
+    ? Math.max(0, currentTransit - estimatedFlight)
+    : currentTransit;
+  const transit = flight ? localTransit + flight.totalAmount : currentTransit;
+  const accommodation = hotel
+    ? hotel.totalAmount
+    : itinerary.budget_breakdown.accommodation ?? 0;
+  const food = itinerary.budget_breakdown.food ?? 0;
+  const activities = itinerary.budget_breakdown.activities ?? 0;
+  const miscellaneous = itinerary.budget_breakdown.miscellaneous ?? 0;
+  const estimatedTotal = food + accommodation + activities + transit + miscellaneous;
+  const noteParts = [
+    itinerary.budget_breakdown.notes,
+    flight
+      ? `Flight pricing uses Amadeus offer ${flight.id} checked at ${offers.checkedAt}.`
+      : null,
+    hotel
+      ? `Hotel pricing uses Amadeus offer ${hotel.id} for ${hotel.hotelName}.`
+      : null,
+    "Live offers can change before booking.",
+  ].filter(Boolean);
+
+  let replacedHotel = false;
+  const days = itinerary.days.map((day, dayIndex) => {
+    if (!hotel) return day;
+    const items = day.items.map((item) => {
+      if (replacedHotel || item.category !== "hotel") return item;
+      replacedHotel = true;
+      return {
+        ...item,
+        title: hotel.hotelName,
+        description:
+          "Live Amadeus hotel offer selected as the lodging base for this itinerary. Verify final price and availability before booking.",
+        place: {
+          ...item.place,
+          name: hotel.hotelName,
+          google_place_id: item.place.google_place_id,
+          address: item.place.address,
+          lat: hotel.lat ?? item.place.lat,
+          lng: hotel.lng ?? item.place.lng,
+          source: "amadeus" as const,
+        },
+        estimated_cost: {
+          amount: hotel.totalAmount,
+          currency: hotel.currency,
+          confidence: "high" as const,
+          note: "Live Amadeus hotel offer at generation time; verify before booking.",
+        },
+        booking_note:
+          hotel.cancellationDescription ||
+          "Live Amadeus hotel offer. Verify final rate, taxes, room terms, and availability before booking.",
+      };
+    });
+
+    if (replacedHotel || dayIndex !== 0) return { ...day, items };
+
+    replacedHotel = true;
+    return {
+      ...day,
+      items: [
+        {
+          start_time: "15:00",
+          end_time: "15:30",
+          title: hotel.hotelName,
+          description:
+            "Live Amadeus hotel offer selected as the lodging base for this itinerary. Verify final price and availability before booking.",
+          category: "hotel" as const,
+          place: {
+            name: hotel.hotelName,
+            google_place_id: null,
+            address: null,
+            lat: hotel.lat,
+            lng: hotel.lng,
+            google_maps_url:
+              hotel.lat !== null && hotel.lng !== null
+                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                    `${hotel.lat},${hotel.lng}`,
+                  )}`
+                : null,
+            source: "amadeus" as const,
+          },
+          estimated_cost: {
+            amount: hotel.totalAmount,
+            currency: hotel.currency,
+            confidence: "high" as const,
+            note: "Live Amadeus hotel offer at generation time; verify before booking.",
+          },
+          why_it_fits:
+            "It gives the itinerary a concrete lodging base backed by a live hotel offer.",
+          transit_note: "Use this hotel as the daily start/end base for route planning.",
+          accessibility_note: "Confirm room and property accessibility directly before booking.",
+          booking_note:
+            hotel.cancellationDescription ||
+            "Live Amadeus hotel offer. Verify final rate, taxes, room terms, and availability before booking.",
+        },
+        ...items,
+      ],
+    };
+  });
+
+  return {
+    ...itinerary,
+    days,
+    estimated_total_cost: estimatedTotal,
+    budget_status: getBudgetStatus(estimatedTotal, input.budget_amount),
+    live_pricing: livePricing,
+    warnings: Array.from(
+      new Set([
+        ...itinerary.warnings.filter(
+          (warning) =>
+            !warning.toLowerCase().includes("hotel and flight costs are planning estimates"),
+        ),
+        "Flight and hotel prices use Amadeus live offers where available, but can change before booking.",
+        ...offers.warnings,
+      ]),
+    ),
+    budget_breakdown: {
+      ...itinerary.budget_breakdown,
+      accommodation,
+      transit,
+      food,
+      activities,
       miscellaneous,
       notes: noteParts.join(" "),
     },

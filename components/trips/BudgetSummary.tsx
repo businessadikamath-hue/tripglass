@@ -109,6 +109,31 @@ export function BudgetSummary({
         ))}
       </div>
       <p className="mt-4 text-xs leading-5 text-slate-400">{breakdown.notes}</p>
+      {itinerary.live_pricing ? (
+        <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-xs leading-5 text-emerald-50">
+          <p className="font-semibold">Live Amadeus pricing attached</p>
+          {itinerary.live_pricing.flight_offer ? (
+            <p>
+              Flight: {formatCurrency(
+                itinerary.live_pricing.flight_offer.total_amount,
+                itinerary.live_pricing.flight_offer.currency,
+              )}{" "}
+              {itinerary.live_pricing.flight_offer.origin_iata} -{" "}
+              {itinerary.live_pricing.flight_offer.destination_iata}
+            </p>
+          ) : null}
+          {itinerary.live_pricing.hotel_offer ? (
+            <p>
+              Hotel: {itinerary.live_pricing.hotel_offer.hotel_name} -{" "}
+              {formatCurrency(
+                itinerary.live_pricing.hotel_offer.total_amount,
+                itinerary.live_pricing.hotel_offer.currency,
+              )}
+            </p>
+          ) : null}
+          <p>Checked {new Date(itinerary.live_pricing.checked_at).toLocaleString()}.</p>
+        </div>
+      ) : null}
       {tripId ? (
         <div className="mt-5 border-t border-white/10 pt-5">
           <p className="mb-2 text-sm font-semibold text-white">Edit budget</p>
