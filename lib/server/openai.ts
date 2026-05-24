@@ -75,46 +75,48 @@ async function repairSpecificPlacesWithOpenAI(
   client: OpenAI,
   itinerary: TripItinerary,
 ) {
-  const specificPlaceIssues = getSpecificPlaceIssues(itinerary);
-  if (specificPlaceIssues.length === 0) return itinerary;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const specificPlaceIssues = getSpecificPlaceIssues(itinerary);
+    if (specificPlaceIssues.length === 0) return itinerary;
 
-  try {
-    const response = await client.responses.create({
-      model: getOpenAIModel(),
-      input: [
-        { role: "system", content: systemPrompt() },
-        {
-          role: "user",
-          content: JSON.stringify({
-            task: "Repair this itinerary so hotels and food stops are specific named places. Preserve the JSON schema exactly.",
-            specific_place_issues: specificPlaceIssues,
-            current_itinerary: itinerary,
-            hard_requirements: [
-              "Add one practical specific named hotel recommendation to the first day if missing.",
-              "Every day must include at least one specific named restaurant or cafe.",
-              "Hotel, restaurant, and cafe place.name values must be specific real-sounding place names, not generic descriptions or neighborhoods.",
-              "If a named hotel, restaurant, or cafe is not from candidate Google Places, set place.source to ai_estimate and confidence to low or medium.",
-              "Do not claim live prices, exact opening hours, booking availability, or verification unless the place came from Google Places.",
-            ],
-          }),
+    try {
+      const response = await client.responses.create({
+        model: getOpenAIModel(),
+        input: [
+          { role: "system", content: systemPrompt() },
+          {
+            role: "user",
+            content: JSON.stringify({
+              task: "Repair this itinerary so hotels and food stops are specific named places. Preserve the JSON schema exactly.",
+              specific_place_issues: specificPlaceIssues,
+              current_itinerary: itinerary,
+              hard_requirements: [
+                "Add one practical specific named hotel recommendation to the first day if missing.",
+                "Every day must include at least one item whose category is exactly restaurant or cafe.",
+                "If a day lacks a restaurant or cafe item, insert a new named food stop between activities with realistic start_time and end_time.",
+                "Hotel, restaurant, and cafe place.name values must be specific real-sounding place names, not generic descriptions or neighborhoods.",
+                "If a named hotel, restaurant, or cafe is not from candidate Google Places, set place.source to ai_estimate and confidence to low or medium.",
+                "Do not claim live prices, exact opening hours, booking availability, or verification unless the place came from Google Places.",
+              ],
+            }),
+          },
+        ],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "trip_itinerary_specific_places",
+            schema: itineraryJsonSchema(),
+            strict: true,
+          },
         },
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "trip_itinerary_specific_places",
-          schema: itineraryJsonSchema(),
-          strict: true,
-        },
-      },
-    });
-    const repaired = tripItinerarySchema.parse(JSON.parse(response.output_text)) as TripItinerary;
-    return getSpecificPlaceIssues(repaired).length < specificPlaceIssues.length
-      ? repaired
-      : itinerary;
-  } catch {
-    return itinerary;
+      });
+      itinerary = tripItinerarySchema.parse(JSON.parse(response.output_text)) as TripItinerary;
+    } catch {
+      return itinerary;
+    }
   }
+
+  return itinerary;
 }
 
 export async function generateItineraryWithOpenAI(args: {
