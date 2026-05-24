@@ -46,7 +46,7 @@ Required for full live mode:
 Useful defaults:
 
 - `AI_PROVIDER=gemini`
-- `GEMINI_MODEL=gemini-2.5-flash`
+- `GEMINI_MODEL=gemini-2.5-flash-lite`
 - `OPENAI_MODEL=gpt-5.4-mini`
 - `ENABLE_PUBLIC_SHARING=true`
 - `ENABLE_ROUTES_API=false`
@@ -58,7 +58,7 @@ Useful defaults:
 1. Create a Gemini API key in Google AI Studio.
 2. Add it to `.env.local` or Vercel as `GEMINI_API_KEY`.
 3. Set `AI_PROVIDER=gemini`.
-4. Set `GEMINI_MODEL=gemini-2.5-flash`.
+4. Set `GEMINI_MODEL=gemini-2.5-flash-lite`.
 
 Gemini is the recommended free-tier provider for launching TripGlass without buying OpenAI credits.
 
