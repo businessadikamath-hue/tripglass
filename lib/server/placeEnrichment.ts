@@ -127,6 +127,47 @@ function normalizeAccommodationItem(
   };
 }
 
+function keepSingleHotelBase(itinerary: TripItinerary): TripItinerary {
+  const hotelItems = itinerary.days.flatMap((day) =>
+    day.items
+      .filter(isAccommodationLike)
+      .map((item) => ({ dayNumber: day.day_number, item })),
+  );
+
+  if (hotelItems.length <= 1) return itinerary;
+
+  const selected =
+    hotelItems.find(({ item }) => item.place.source === "google_places")?.item ??
+    hotelItems[0].item;
+
+  const normalizedHotel = {
+    ...selected,
+    start_time: selected.start_time || "15:00",
+    end_time: selected.end_time || "15:30",
+    title: selected.place.name ?? selected.title,
+    category: "hotel" as const,
+    transit_note:
+      selected.transit_note ||
+      "Use this hotel as the daily start/end base when comparing transit times.",
+  };
+
+  const [firstDay, ...restDays] = itinerary.days.map((day) => ({
+    ...day,
+    items: day.items.filter((item) => !isAccommodationLike(item)),
+  }));
+
+  return {
+    ...itinerary,
+    days: [
+      {
+        ...firstDay,
+        items: [normalizedHotel, ...firstDay.items],
+      },
+      ...restDays,
+    ],
+  };
+}
+
 export async function enrichItineraryPlaces(
   itinerary: TripItinerary,
   input: Pick<TripInput, "destination_text">,
@@ -232,7 +273,7 @@ export async function enrichItineraryPlaces(
     }),
   );
 
-  const enriched = { ...itinerary, days };
+  const enriched = keepSingleHotelBase({ ...itinerary, days });
   return ensureHotelRecommendation(enriched, input, destinationCenter);
 }
 
