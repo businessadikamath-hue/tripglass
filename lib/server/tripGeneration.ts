@@ -448,7 +448,8 @@ function applyLiveTravelOffers(
       new Set([
         ...itinerary.warnings.filter(
           (warning) =>
-            !warning.toLowerCase().includes("hotel and flight costs are planning estimates"),
+            !warning.toLowerCase().includes("hotel and flight costs are planning estimates") &&
+            !warning.toLowerCase().includes("hotel pricing came from duffel"),
         ),
         "Flight prices use Duffel and hotel prices use LiteAPI/Duffel live offers where available, but can change before booking.",
         ...offers.warnings,
