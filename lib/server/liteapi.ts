@@ -269,7 +269,12 @@ export async function getLiteApiHotelOffers(
     Math.max(2000, Math.ceil((input.travel_radius_minutes ?? 45) * 250)),
   );
   const body: Record<string, unknown> = {
-    occupancies: [{ adults: Math.max(1, input.travelers) }],
+    occupancies: [
+      {
+        rooms: Math.max(1, Math.ceil(input.travelers / 2)),
+        adults: Math.max(1, input.travelers),
+      },
+    ],
     currency: input.currency,
     guestNationality: process.env.LITEAPI_GUEST_NATIONALITY || "US",
     checkin: checkInDate,
