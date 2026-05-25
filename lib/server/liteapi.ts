@@ -233,9 +233,9 @@ function normalizeHotelOffer(
 ): DuffelHotelOffer | null {
   const hotelId = rate.hotelId ?? rate.hotel?.hotelId ?? rate.hotelData?.hotelId ?? rate.hotel?.id ?? rate.hotelData?.id;
   const hotel =
+    (hotelId ? hotelLookup.get(String(hotelId)) : undefined) ??
     rate.hotel ??
     rate.hotelData ??
-    (hotelId ? hotelLookup.get(String(hotelId)) : undefined) ??
     {};
   const totalAmount = rateAmount(rate);
   const hotelName = firstText(rate.hotelName, hotel.hotelName, hotel.name, rate.name);
@@ -337,7 +337,7 @@ export async function getLiteApiHotelOffers(
       rawRates[0].hotelId ?? rawRates[0].hotel?.hotelId ?? rawRates[0].hotelData?.hotelId;
     const firstHotel = firstId ? hotelLookup.get(String(firstId)) : undefined;
     warnings.push(
-      `LiteAPI first raw hotel rate amount: ${rateAmount(rawRates[0]) ?? "missing"}, id: ${firstId ?? "missing"}, name: ${firstText(rawRates[0].hotelName, rawRates[0].name, firstHotel?.name) ?? "missing"}.`,
+      `LiteAPI first raw hotel rate amount: ${rateAmount(rawRates[0]) ?? "missing"}, id: ${firstId ?? "missing"}, name: ${firstText(rawRates[0].hotelName, firstHotel?.name, rawRates[0].name) ?? "missing"}.`,
     );
   }
 
