@@ -409,7 +409,7 @@ export async function getDuffelTravelOffers(
     return empty;
   }
 
-  const [flightResult, liteHotelOffers, duffelHotelOffers] = await Promise.all([
+  const [flightResult, liteHotelOffers] = await Promise.all([
     getFlightOffers(input, warnings).catch((error) => {
       warnings.push(error instanceof Error ? error.message : "Duffel flight search failed.");
       return { originIata: null, destinationIata: null, flightOffers: [] };
@@ -418,11 +418,14 @@ export async function getDuffelTravelOffers(
       warnings.push(error instanceof Error ? error.message : "LiteAPI hotel search failed.");
       return [];
     }),
-    getHotelOffers(input, destinationLat, destinationLng, warnings).catch((error) => {
-      warnings.push(error instanceof Error ? error.message : "Duffel hotel search failed.");
-      return [];
-    }),
   ]);
+  const duffelHotelOffers =
+    liteHotelOffers.length > 0
+      ? []
+      : await getHotelOffers(input, destinationLat, destinationLng, warnings).catch((error) => {
+          warnings.push(error instanceof Error ? error.message : "Duffel hotel search failed.");
+          return [];
+        });
   const hotelOffers = liteHotelOffers.length > 0 ? liteHotelOffers : duffelHotelOffers;
 
   return {

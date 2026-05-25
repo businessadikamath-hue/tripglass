@@ -323,7 +323,6 @@ export async function getLiteApiHotelOffers(
     body: JSON.stringify(body),
   });
   const rawRates = flattenRates(payload);
-  warnings.push(`LiteAPI raw hotel rate rows: ${rawRates.length}.`);
   const hotelLookup = await getLiteApiHotelsByIds(
     rawRates
       .map((rate) => rate.hotelId ?? rate.hotel?.hotelId ?? rate.hotelData?.hotelId)
@@ -331,15 +330,6 @@ export async function getLiteApiHotelOffers(
       .slice(0, 25),
     warnings,
   );
-  warnings.push(`LiteAPI hotel metadata rows: ${hotelLookup.size}.`);
-  if (rawRates[0]) {
-    const firstId =
-      rawRates[0].hotelId ?? rawRates[0].hotel?.hotelId ?? rawRates[0].hotelData?.hotelId;
-    const firstHotel = firstId ? hotelLookup.get(String(firstId)) : undefined;
-    warnings.push(
-      `LiteAPI first raw hotel rate amount: ${rateAmount(rawRates[0]) ?? "missing"}, id: ${firstId ?? "missing"}, name: ${firstText(rawRates[0].hotelName, firstHotel?.name, rawRates[0].name) ?? "missing"}.`,
-    );
-  }
 
   const offers = rawRates
     .map((rate) => normalizeHotelOffer(rate, input, checkedAt, hotelLookup))
