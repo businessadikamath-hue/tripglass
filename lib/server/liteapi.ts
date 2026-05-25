@@ -286,14 +286,6 @@ export async function getLiteApiHotelOffers(
     20000,
     Math.max(2000, Math.ceil((input.travel_radius_minutes ?? 45) * 250)),
   );
-  const hotelLookup = await getLiteApiHotels(
-    input,
-    destinationLat,
-    destinationLng,
-    radius,
-    warnings,
-  );
-  const hotelIds = Array.from(hotelLookup.keys()).slice(0, 20);
   const body: Record<string, unknown> = {
     occupancies: [
       {
@@ -311,10 +303,7 @@ export async function getLiteApiHotelOffers(
     sort: [{ field: "price", direction: "ascending" }],
   };
 
-  if (hotelIds.length > 0) {
-    body.hotelIds = hotelIds;
-    body.includeHotelData = true;
-  } else if (typeof destinationLat === "number" && typeof destinationLng === "number") {
+  if (typeof destinationLat === "number" && typeof destinationLng === "number") {
     body.latitude = destinationLat;
     body.longitude = destinationLng;
     body.radius = radius;
@@ -327,8 +316,16 @@ export async function getLiteApiHotelOffers(
     method: "POST",
     body: JSON.stringify(body),
   });
+  const rawRates = flattenRates(payload);
+  const hotelLookup = await getLiteApiHotelsByIds(
+    rawRates
+      .map((rate) => rate.hotelId ?? rate.hotel?.hotelId ?? rate.hotelData?.hotelId)
+      .filter((id): id is string => Boolean(id))
+      .slice(0, 25),
+    warnings,
+  );
 
-  const offers = flattenRates(payload)
+  const offers = rawRates
     .map((rate) => normalizeHotelOffer(rate, input, checkedAt, hotelLookup))
     .filter((offer): offer is DuffelHotelOffer => Boolean(offer))
     .sort((a, b) => a.totalAmount - b.totalAmount)
@@ -341,27 +338,18 @@ export async function getLiteApiHotelOffers(
   return offers;
 }
 
-async function getLiteApiHotels(
-  input: TripInput,
-  destinationLat: number | null | undefined,
-  destinationLng: number | null | undefined,
-  radius: number,
+async function getLiteApiHotelsByIds(
+  hotelIds: string[],
   warnings: string[],
 ) {
-  const params: Record<string, string | number | boolean | null | undefined> = {
+  const uniqueIds = Array.from(new Set(hotelIds)).filter(Boolean);
+  if (uniqueIds.length === 0) return new Map<string, RawLiteHotel>();
+
+  const payload = await liteApiGet<{ data?: RawLiteHotel[] }>("/data/hotels", {
+    hotelIds: uniqueIds.join(","),
     limit: 25,
     timeout: Math.max(2, Math.min(8, Math.floor(liteApiTimeoutMs() / 1000) - 3)),
-  };
-
-  if (typeof destinationLat === "number" && typeof destinationLng === "number") {
-    params.latitude = destinationLat;
-    params.longitude = destinationLng;
-    params.radius = radius;
-  } else {
-    params.aiSearch = `Hotels in ${input.destination_text}`;
-  }
-
-  const payload = await liteApiGet<{ data?: RawLiteHotel[] }>("/data/hotels", params).catch(
+  }).catch(
     (error) => {
       warnings.push(error instanceof Error ? error.message : "LiteAPI hotel metadata search failed.");
       return { data: [] };
