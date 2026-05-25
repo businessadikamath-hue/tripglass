@@ -99,6 +99,12 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
+function firstText(...values: Array<unknown>) {
+  return values
+    .find((value): value is string => typeof value === "string" && value.trim().length > 0)
+    ?.trim();
+}
+
 async function liteApiFetch<T>(path: string, init: RequestInit) {
   const key = process.env.LITEAPI_KEY?.trim();
   if (!key) throw new Error("LITEAPI_KEY_MISSING");
@@ -232,7 +238,7 @@ function normalizeHotelOffer(
     (hotelId ? hotelLookup.get(String(hotelId)) : undefined) ??
     {};
   const totalAmount = rateAmount(rate);
-  const hotelName = rate.hotelName ?? rate.name ?? hotel.hotelName ?? hotel.name;
+  const hotelName = firstText(rate.hotelName, hotel.hotelName, hotel.name, rate.name);
   if (!hotelId || !hotelName || totalAmount === null) return null;
 
   return {
@@ -317,6 +323,7 @@ export async function getLiteApiHotelOffers(
     body: JSON.stringify(body),
   });
   const rawRates = flattenRates(payload);
+  warnings.push(`LiteAPI raw hotel rate rows: ${rawRates.length}.`);
   const hotelLookup = await getLiteApiHotelsByIds(
     rawRates
       .map((rate) => rate.hotelId ?? rate.hotel?.hotelId ?? rate.hotelData?.hotelId)
@@ -324,6 +331,15 @@ export async function getLiteApiHotelOffers(
       .slice(0, 25),
     warnings,
   );
+  warnings.push(`LiteAPI hotel metadata rows: ${hotelLookup.size}.`);
+  if (rawRates[0]) {
+    const firstId =
+      rawRates[0].hotelId ?? rawRates[0].hotel?.hotelId ?? rawRates[0].hotelData?.hotelId;
+    const firstHotel = firstId ? hotelLookup.get(String(firstId)) : undefined;
+    warnings.push(
+      `LiteAPI first raw hotel rate amount: ${rateAmount(rawRates[0]) ?? "missing"}, id: ${firstId ?? "missing"}, name: ${firstText(rawRates[0].hotelName, rawRates[0].name, firstHotel?.name) ?? "missing"}.`,
+    );
+  }
 
   const offers = rawRates
     .map((rate) => normalizeHotelOffer(rate, input, checkedAt, hotelLookup))
