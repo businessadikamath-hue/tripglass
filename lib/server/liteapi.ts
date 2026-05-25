@@ -134,6 +134,19 @@ async function liteApiFetch<T>(path: string, init: RequestInit) {
   return payload;
 }
 
+async function liteApiGet<T>(
+  path: string,
+  params: Record<string, string | number | boolean | null | undefined>,
+) {
+  const url = new URL(path, "https://api.liteapi.travel/v3.0");
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== null && value !== undefined && value !== "") {
+      url.searchParams.set(key, String(value));
+    }
+  }
+  return liteApiFetch<T>(`${url.pathname}${url.search}`, { method: "GET" });
+}
+
 function parseLiteApiPayload(text: string) {
   if (!text.trim()) return null;
   if (!text.trimStart().startsWith("data:")) return JSON.parse(text);
@@ -210,10 +223,15 @@ function normalizeHotelOffer(
   rate: RawLiteRate,
   input: TripInput,
   checkedAt: string,
+  hotelLookup: Map<string, RawLiteHotel>,
 ): DuffelHotelOffer | null {
-  const hotel = rate.hotel ?? rate.hotelData ?? {};
+  const hotelId = rate.hotelId ?? rate.hotel?.hotelId ?? rate.hotelData?.hotelId ?? rate.hotel?.id ?? rate.hotelData?.id;
+  const hotel =
+    rate.hotel ??
+    rate.hotelData ??
+    (hotelId ? hotelLookup.get(String(hotelId)) : undefined) ??
+    {};
   const totalAmount = rateAmount(rate);
-  const hotelId = rate.hotelId ?? hotel.hotelId ?? hotel.id;
   const hotelName = rate.hotelName ?? rate.name ?? hotel.hotelName ?? hotel.name;
   if (!hotelId || !hotelName || totalAmount === null) return null;
 
@@ -268,6 +286,14 @@ export async function getLiteApiHotelOffers(
     20000,
     Math.max(2000, Math.ceil((input.travel_radius_minutes ?? 45) * 250)),
   );
+  const hotelLookup = await getLiteApiHotels(
+    input,
+    destinationLat,
+    destinationLng,
+    radius,
+    warnings,
+  );
+  const hotelIds = Array.from(hotelLookup.keys()).slice(0, 20);
   const body: Record<string, unknown> = {
     occupancies: [
       {
@@ -282,11 +308,13 @@ export async function getLiteApiHotelOffers(
     timeout: Math.max(4, Math.min(12, Math.floor(liteApiTimeoutMs() / 1000) - 1)),
     maxRatesPerHotel: 1,
     limit: 10,
-    includeHotelData: true,
     sort: [{ field: "price", direction: "ascending" }],
   };
 
-  if (typeof destinationLat === "number" && typeof destinationLng === "number") {
+  if (hotelIds.length > 0) {
+    body.hotelIds = hotelIds;
+    body.includeHotelData = true;
+  } else if (typeof destinationLat === "number" && typeof destinationLng === "number") {
     body.latitude = destinationLat;
     body.longitude = destinationLng;
     body.radius = radius;
@@ -301,7 +329,7 @@ export async function getLiteApiHotelOffers(
   });
 
   const offers = flattenRates(payload)
-    .map((rate) => normalizeHotelOffer(rate, input, checkedAt))
+    .map((rate) => normalizeHotelOffer(rate, input, checkedAt, hotelLookup))
     .filter((offer): offer is DuffelHotelOffer => Boolean(offer))
     .sort((a, b) => a.totalAmount - b.totalAmount)
     .slice(0, 8);
@@ -311,4 +339,38 @@ export async function getLiteApiHotelOffers(
   }
 
   return offers;
+}
+
+async function getLiteApiHotels(
+  input: TripInput,
+  destinationLat: number | null | undefined,
+  destinationLng: number | null | undefined,
+  radius: number,
+  warnings: string[],
+) {
+  const params: Record<string, string | number | boolean | null | undefined> = {
+    limit: 25,
+    timeout: Math.max(2, Math.min(8, Math.floor(liteApiTimeoutMs() / 1000) - 3)),
+  };
+
+  if (typeof destinationLat === "number" && typeof destinationLng === "number") {
+    params.latitude = destinationLat;
+    params.longitude = destinationLng;
+    params.radius = radius;
+  } else {
+    params.aiSearch = `Hotels in ${input.destination_text}`;
+  }
+
+  const payload = await liteApiGet<{ data?: RawLiteHotel[] }>("/data/hotels", params).catch(
+    (error) => {
+      warnings.push(error instanceof Error ? error.message : "LiteAPI hotel metadata search failed.");
+      return { data: [] };
+    },
+  );
+
+  return new Map(
+    (payload.data ?? [])
+      .filter((hotel) => hotel.id && hotel.name)
+      .map((hotel) => [String(hotel.id), hotel]),
+  );
 }
