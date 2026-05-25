@@ -276,7 +276,7 @@ export async function getLiteApiHotelOffers(
       },
     ],
     currency: input.currency,
-    guestNationality: process.env.LITEAPI_GUEST_NATIONALITY || "US",
+    guestNationality: process.env.LITEAPI_GUEST_NATIONALITY?.trim() || "US",
     checkin: checkInDate,
     checkout: checkOutDate,
     timeout: Math.max(4, Math.min(12, Math.floor(liteApiTimeoutMs() / 1000) - 1)),
