@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
-import { getAmadeusTravelOffers, isAmadeusConfigured } from "@/lib/server/amadeus";
 import { createClient } from "@/lib/supabase/server";
+import { getDuffelTravelOffers, isDuffelConfigured } from "@/lib/server/duffel";
 import { searchDestinationsFallback } from "@/lib/server/geocoding";
 import {
   generateItineraryWithGemini,
@@ -15,7 +15,7 @@ import {
   isOpenAIConfigured,
 } from "@/lib/server/openai";
 import { getDailyWeather } from "@/lib/server/weather";
-import type { AmadeusTravelOffers } from "@/types/amadeus";
+import type { DuffelTravelOffers } from "@/types/duffel";
 import type { BudgetStatus, TripInput, TripItinerary } from "@/types/trip";
 import type { LivePricingSummary } from "@/types/travel";
 
@@ -73,21 +73,21 @@ export async function generateTrip(input: TripInput) {
     rentalCar: input.rental_car,
   }).catch(() => []);
 
-  const travelOffers = await getAmadeusTravelOffers(
+  const travelOffers = await getDuffelTravelOffers(
     input,
     destinationLat,
     destinationLng,
   ).catch(
-    (): AmadeusTravelOffers => ({
-      provider: "amadeus",
-      configured: isAmadeusConfigured(),
+    (): DuffelTravelOffers => ({
+      provider: "duffel",
+      configured: isDuffelConfigured(),
       enabled: false,
       checkedAt: new Date().toISOString(),
       originIata: null,
       destinationIata: null,
       flightOffers: [],
       hotelOffers: [],
-      warnings: ["Amadeus live offer lookup failed."],
+      warnings: ["Duffel live offer lookup failed. AI estimates were used instead."],
     }),
   );
 
@@ -177,8 +177,8 @@ export async function generateTrip(input: TripInput) {
       gemini: isGeminiConfigured(),
       aiProvider: getAIProvider(),
       googlePlaces: Boolean(process.env.GOOGLE_MAPS_API_KEY),
-      amadeus: travelOffers.configured,
-      amadeusLiveOffers:
+      duffel: travelOffers.configured,
+      duffelLiveOffers:
         travelOffers.flightOffers.length > 0 || travelOffers.hotelOffers.length > 0,
       supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
       weather: true,
@@ -269,21 +269,21 @@ function ensureBudgetPlanningEstimates(itinerary: TripItinerary, input: TripInpu
   };
 }
 
-function firstFlightSegment(offers: AmadeusTravelOffers) {
-  return offers.flightOffers[0]?.itineraries[0]?.segments[0] ?? null;
+function firstFlightSegment(offers: DuffelTravelOffers) {
+  return offers.flightOffers[0]?.slices[0]?.segments[0] ?? null;
 }
 
-function livePricingSummary(offers: AmadeusTravelOffers): LivePricingSummary | undefined {
+function livePricingSummary(offers: DuffelTravelOffers): LivePricingSummary | undefined {
   const flight = offers.flightOffers[0];
   const hotel = offers.hotelOffers[0];
   if (!flight && !hotel) return undefined;
 
   const firstSegment = firstFlightSegment(offers);
-  const lastOutboundSegments = offers.flightOffers[0]?.itineraries[0]?.segments ?? [];
+  const lastOutboundSegments = offers.flightOffers[0]?.slices[0]?.segments ?? [];
   const lastSegment = lastOutboundSegments[lastOutboundSegments.length - 1] ?? null;
 
   return {
-    provider: "amadeus",
+    provider: "duffel",
     checked_at: offers.checkedAt,
     flight_offer: flight
       ? {
@@ -292,10 +292,10 @@ function livePricingSummary(offers: AmadeusTravelOffers): LivePricingSummary | u
           destination_iata: flight.destinationIata,
           total_amount: flight.totalAmount,
           currency: flight.currency,
-          validating_airline_codes: flight.validatingAirlineCodes,
+          airline_name: flight.ownerName,
           departure_at: firstSegment?.departureAt ?? null,
           arrival_at: lastSegment?.arrivalAt ?? null,
-          last_ticketing_date: flight.lastTicketingDate,
+          expires_at: flight.expiresAt,
         }
       : null,
     hotel_offer: hotel
@@ -312,7 +312,7 @@ function livePricingSummary(offers: AmadeusTravelOffers): LivePricingSummary | u
         }
       : null,
     notes: [
-      "Flight and hotel prices came from Amadeus live offers at generation time.",
+      "Flight and hotel prices came from Duffel live offers at generation time.",
       "Prices, fare rules, room availability, and cancellation terms can change before booking.",
       ...offers.warnings,
     ],
@@ -322,7 +322,7 @@ function livePricingSummary(offers: AmadeusTravelOffers): LivePricingSummary | u
 function applyLiveTravelOffers(
   itinerary: TripItinerary,
   input: TripInput,
-  offers: AmadeusTravelOffers,
+  offers: DuffelTravelOffers,
 ): TripItinerary {
   const flight = offers.flightOffers[0];
   const hotel = offers.hotelOffers[0];
@@ -352,10 +352,10 @@ function applyLiveTravelOffers(
   const noteParts = [
     itinerary.budget_breakdown.notes,
     flight
-      ? `Flight pricing uses Amadeus offer ${flight.id} checked at ${offers.checkedAt}.`
+      ? `Flight pricing uses Duffel offer ${flight.id} checked at ${offers.checkedAt}.`
       : null,
     hotel
-      ? `Hotel pricing uses Amadeus offer ${hotel.id} for ${hotel.hotelName}.`
+      ? `Hotel pricing uses Duffel stay offer ${hotel.id} for ${hotel.hotelName}.`
       : null,
     "Live offers can change before booking.",
   ].filter(Boolean);
@@ -370,25 +370,25 @@ function applyLiveTravelOffers(
         ...item,
         title: hotel.hotelName,
         description:
-          "Live Amadeus hotel offer selected as the lodging base for this itinerary. Verify final price and availability before booking.",
+          "Live Duffel stay offer selected as the lodging base for this itinerary. Verify final price and availability before booking.",
         place: {
           ...item.place,
           name: hotel.hotelName,
           google_place_id: item.place.google_place_id,
-          address: item.place.address,
+          address: hotel.address ?? item.place.address,
           lat: hotel.lat ?? item.place.lat,
           lng: hotel.lng ?? item.place.lng,
-          source: "amadeus" as const,
+          source: "duffel" as const,
         },
         estimated_cost: {
           amount: hotel.totalAmount,
           currency: hotel.currency,
           confidence: "high" as const,
-          note: "Live Amadeus hotel offer at generation time; verify before booking.",
+          note: "Live Duffel stay offer at generation time; verify before booking.",
         },
         booking_note:
           hotel.cancellationDescription ||
-          "Live Amadeus hotel offer. Verify final rate, taxes, room terms, and availability before booking.",
+          "Live Duffel stay offer. Verify final rate, taxes, room terms, and availability before booking.",
       };
     });
 
@@ -403,12 +403,12 @@ function applyLiveTravelOffers(
           end_time: "15:30",
           title: hotel.hotelName,
           description:
-            "Live Amadeus hotel offer selected as the lodging base for this itinerary. Verify final price and availability before booking.",
+            "Live Duffel stay offer selected as the lodging base for this itinerary. Verify final price and availability before booking.",
           category: "hotel" as const,
           place: {
             name: hotel.hotelName,
             google_place_id: null,
-            address: null,
+            address: hotel.address,
             lat: hotel.lat,
             lng: hotel.lng,
             google_maps_url:
@@ -417,13 +417,13 @@ function applyLiveTravelOffers(
                     `${hotel.lat},${hotel.lng}`,
                   )}`
                 : null,
-            source: "amadeus" as const,
+            source: "duffel" as const,
           },
           estimated_cost: {
             amount: hotel.totalAmount,
             currency: hotel.currency,
             confidence: "high" as const,
-            note: "Live Amadeus hotel offer at generation time; verify before booking.",
+            note: "Live Duffel stay offer at generation time; verify before booking.",
           },
           why_it_fits:
             "It gives the itinerary a concrete lodging base backed by a live hotel offer.",
@@ -431,7 +431,7 @@ function applyLiveTravelOffers(
           accessibility_note: "Confirm room and property accessibility directly before booking.",
           booking_note:
             hotel.cancellationDescription ||
-            "Live Amadeus hotel offer. Verify final rate, taxes, room terms, and availability before booking.",
+            "Live Duffel stay offer. Verify final rate, taxes, room terms, and availability before booking.",
         },
         ...items,
       ],
@@ -450,7 +450,7 @@ function applyLiveTravelOffers(
           (warning) =>
             !warning.toLowerCase().includes("hotel and flight costs are planning estimates"),
         ),
-        "Flight and hotel prices use Amadeus live offers where available, but can change before booking.",
+        "Flight and hotel prices use Duffel live offers where available, but can change before booking.",
         ...offers.warnings,
       ]),
     ),

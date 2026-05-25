@@ -1,35 +1,35 @@
-export type AmadeusFlightSegment = {
-  carrierCode: string;
-  flightNumber: string;
-  departureIata: string;
-  arrivalIata: string;
+export type DuffelFlightSegment = {
+  carrierName: string | null;
+  flightNumber: string | null;
+  originIata: string;
+  destinationIata: string;
   departureAt: string;
   arrivalAt: string;
   duration: string | null;
 };
 
-export type AmadeusFlightOffer = {
+export type DuffelFlightOffer = {
   id: string;
-  source: "amadeus";
+  source: "duffel";
   originIata: string;
   destinationIata: string;
   totalAmount: number;
   currency: string;
-  validatingAirlineCodes: string[];
-  oneWay: boolean;
-  itineraries: Array<{
+  ownerName: string | null;
+  slices: Array<{
     duration: string | null;
-    segments: AmadeusFlightSegment[];
+    segments: DuffelFlightSegment[];
   }>;
-  lastTicketingDate: string | null;
+  expiresAt: string | null;
   checkedAt: string;
 };
 
-export type AmadeusHotelOffer = {
+export type DuffelHotelOffer = {
   id: string;
-  source: "amadeus";
+  source: "duffel";
   hotelId: string;
   hotelName: string;
+  address: string | null;
   lat: number | null;
   lng: number | null;
   checkInDate: string;
@@ -37,21 +37,18 @@ export type AmadeusHotelOffer = {
   totalAmount: number;
   currency: string;
   roomType: string | null;
-  rateCode: string | null;
-  boardType: string | null;
   cancellationDescription: string | null;
-  paymentType: string | null;
   checkedAt: string;
 };
 
-export type AmadeusTravelOffers = {
-  provider: "amadeus";
+export type DuffelTravelOffers = {
+  provider: "duffel";
   configured: boolean;
   enabled: boolean;
   checkedAt: string;
   originIata: string | null;
   destinationIata: string | null;
-  flightOffers: AmadeusFlightOffer[];
-  hotelOffers: AmadeusHotelOffer[];
+  flightOffers: DuffelFlightOffer[];
+  hotelOffers: DuffelHotelOffer[];
   warnings: string[];
 };

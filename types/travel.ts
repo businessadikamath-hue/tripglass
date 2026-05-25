@@ -1,7 +1,7 @@
-import type { AmadeusTravelOffers } from "@/types/amadeus";
+import type { DuffelTravelOffers } from "@/types/duffel";
 
 export type LivePricingSummary = {
-  provider: "amadeus";
+  provider: "duffel";
   checked_at: string;
   flight_offer: {
     id: string;
@@ -9,10 +9,10 @@ export type LivePricingSummary = {
     destination_iata: string;
     total_amount: number;
     currency: string;
-    validating_airline_codes: string[];
+    airline_name: string | null;
     departure_at: string | null;
     arrival_at: string | null;
-    last_ticketing_date: string | null;
+    expires_at: string | null;
   } | null;
   hotel_offer: {
     id: string;
@@ -28,4 +28,4 @@ export type LivePricingSummary = {
   notes: string[];
 };
 
-export type TravelOfferBundle = AmadeusTravelOffers;
+export type TravelOfferBundle = DuffelTravelOffers;

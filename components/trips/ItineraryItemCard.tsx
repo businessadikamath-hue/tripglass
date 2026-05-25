@@ -49,7 +49,7 @@ export function ItineraryItemCard({
 }) {
   const Icon = icons[item.category] ?? MapPin;
   const verified = item.place.source === "google_places";
-  const liveOffer = item.place.source === "amadeus";
+  const liveOffer = item.place.source === "duffel";
   const [isReplacing, setIsReplacing] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);

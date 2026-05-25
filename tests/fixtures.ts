@@ -21,7 +21,7 @@ export const sampleItinerary: TripItinerary = {
     notes: "All costs are planning estimates.",
   },
   live_pricing: {
-    provider: "amadeus",
+    provider: "duffel",
     checked_at: "2026-05-24T12:00:00.000Z",
     flight_offer: {
       id: "1",
@@ -29,10 +29,10 @@ export const sampleItinerary: TripItinerary = {
       destination_iata: "CDG",
       total_amount: 540,
       currency: "USD",
-      validating_airline_codes: ["AF"],
+      airline_name: "Air France",
       departure_at: "2026-06-01T20:00:00",
       arrival_at: "2026-06-02T09:20:00",
-      last_ticketing_date: null,
+      expires_at: null,
     },
     hotel_offer: {
       id: "H1",

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getAmadeusTravelOffers } from "@/lib/server/amadeus";
+import { getDuffelTravelOffers } from "@/lib/server/duffel";
 import { apiError } from "@/lib/server/apiErrors";
 import { tripInputSchema } from "@/lib/validation/tripInput";
 
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const offers = await getAmadeusTravelOffers(
+    const offers = await getDuffelTravelOffers(
       parsed.data,
       parsed.data.destination_lat,
       parsed.data.destination_lng,
@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ offers });
   } catch (error) {
     return apiError(
-      "AMADEUS_ERROR",
-      "Could not load live flight and hotel offers.",
+      "DUFFEL_ERROR",
+      "Could not load live flight and hotel offers. AI estimates can still be used.",
       502,
       error,
     );

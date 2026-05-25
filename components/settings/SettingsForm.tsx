@@ -149,7 +149,7 @@ export function SettingsForm({
         <h2 className="text-lg font-semibold text-white">API status</h2>
         <div className="mt-5 space-y-3">
           {Object.entries(integrations)
-            .filter(([key]) => key !== "amadeus")
+            .filter(([key]) => key !== "duffel")
             .map(([key, ok]) => (
             <div key={key} className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.12] bg-white/[0.06] p-3">
               <span className="text-sm capitalize text-slate-300">{key.replace(/([A-Z])/g, " $1")}</span>

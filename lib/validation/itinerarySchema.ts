@@ -28,7 +28,7 @@ export const itineraryItemSchema = z.object({
     lat: z.number().nullable(),
     lng: z.number().nullable(),
     google_maps_url: z.string().url().nullable(),
-    source: z.enum(["google_places", "amadeus", "ai_estimate", "user_input"]),
+    source: z.enum(["google_places", "duffel", "ai_estimate", "user_input"]),
   }),
   estimated_cost: z.object({
     amount: z.number().nonnegative().nullable(),
@@ -87,7 +87,7 @@ export const tripItinerarySchema = z.object({
   }),
   live_pricing: z
     .object({
-      provider: z.literal("amadeus"),
+      provider: z.literal("duffel"),
       checked_at: z.string(),
       flight_offer: z
         .object({
@@ -96,10 +96,10 @@ export const tripItinerarySchema = z.object({
           destination_iata: z.string(),
           total_amount: z.number().nonnegative(),
           currency: z.string().min(3).max(3),
-          validating_airline_codes: z.array(z.string()),
+          airline_name: z.string().nullable(),
           departure_at: z.string().nullable(),
           arrival_at: z.string().nullable(),
-          last_ticketing_date: z.string().nullable(),
+          expires_at: z.string().nullable(),
         })
         .nullable(),
       hotel_offer: z

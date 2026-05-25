@@ -8,7 +8,7 @@ TripGlass is a production-ready MVP for AI travel planning. Users enter a destin
 - Supabase Auth, Postgres, and Row Level Security
 - Gemini API or OpenAI Responses API with structured JSON output
 - Google Places API (New) and Maps JavaScript API
-- Optional Amadeus Self-Service APIs for live flight and hotel offers
+- Optional Duffel APIs for live flight and hotel offer estimates
 - Open-Meteo weather forecasts
 - Zod, React Hook Form, Lucide React, date-fns
 - Vitest validation tests
@@ -46,10 +46,10 @@ Required for full live mode:
 
 Optional for live travel pricing:
 
-- `AMADEUS_CLIENT_ID`
-- `AMADEUS_CLIENT_SECRET`
-- `AMADEUS_ENV=test`
-- `ENABLE_AMADEUS_FLIGHTS=true`
+- `DUFFEL_ACCESS_TOKEN`
+- `DUFFEL_API_VERSION=v2`
+- `DUFFEL_TIMEOUT_MS=12000`
+- `ENABLE_DUFFEL_TRAVEL=true`
 
 Useful defaults:
 
@@ -90,26 +90,29 @@ Gemini is the recommended free-tier provider for launching TripGlass without buy
 
 If Google keys are missing, live autocomplete and maps are disabled with visible warnings. Manual destination entry still works.
 
-## Amadeus Setup
+## Duffel Setup
 
-Use Amadeus only for the pieces TripGlass does not already get from Google: flight offers and hotel room offers.
+Use Duffel only for the pieces TripGlass does not already get from Google: flight offers and hotel/stay offers.
 
-1. Go to [developers.amadeus.com](https://developers.amadeus.com/).
-2. Register or sign in.
-3. Open `My Self-Service Workspace`.
-4. Click `Create New App`.
-5. Copy the app's API Key into `AMADEUS_CLIENT_ID`.
-6. Copy the app's API Secret into `AMADEUS_CLIENT_SECRET`.
-7. Keep `AMADEUS_ENV=test` while developing. Switch to `production` only after Amadeus approves/activates production access for your app.
-8. Add those variables in Vercel Project Settings, then redeploy.
+1. Go to [duffel.com](https://duffel.com/) and create a Duffel account.
+2. In the Duffel dashboard, switch to Developer test mode.
+3. Open `More` -> `Developers` -> `Access tokens`.
+4. Create a test access token. Test tokens start with `duffel_test_`.
+5. Add the token to `.env.local` or Vercel as `DUFFEL_ACCESS_TOKEN`.
+6. Keep `DUFFEL_API_VERSION=v2`.
+7. Keep `ENABLE_DUFFEL_TRAVEL=true`.
+8. If live pricing is slow, lower or raise `DUFFEL_TIMEOUT_MS`. TripGlass falls back to AI estimates if Duffel times out or returns no offers.
+9. Request Duffel Stays access in the dashboard if hotel/stay search is not enabled yet.
+10. Add those variables in Vercel Project Settings, then redeploy.
 
-When Amadeus is configured, TripGlass calls server-side Amadeus APIs only. It uses:
+When Duffel is configured, TripGlass calls server-side Duffel APIs only. It uses:
 
-- Airport & City Search to resolve city names to IATA codes
-- Flight Offers Search for airline, timing, and fare offers
-- Hotel List by Geocode plus Hotel Offers for hotel names, room offer prices, and availability windows
+- Flight Offer Requests for airline, timing, and fare offers
+- Stays Search for hotel names, cheapest available rates, and coordinates
 
 Prices are shown as live offers checked at generation time, not guaranteed booking prices. Users should still verify final fare, taxes, rules, room terms, and availability before booking.
+
+Duffel's public help center documents a default live search rate limit of 120 requests per 60 seconds. Limits can vary by endpoint, so keep generation requests server-side and avoid calling live pricing on every keystroke.
 
 ## OpenAI Setup
 
@@ -142,7 +145,7 @@ npm run build
 - `VALIDATION_ERROR`: check destination, duration, travelers, dates, and budget.
 - `UNAUTHORIZED`: sign in or configure Supabase.
 - `GOOGLE_PLACES_ERROR`: verify Places API (New), billing, quotas, and server key restrictions.
-- `AMADEUS_ERROR`: verify Amadeus credentials, `AMADEUS_ENV`, quota, date range, and whether the route/hotel market is available in your Amadeus environment.
+- `DUFFEL_ERROR`: verify Duffel access token, Stays access, quota, date range, and whether the route/hotel market is available.
 - `OPENAI_ERROR`: verify the selected AI provider key, model name, quota, and logs.
 
 ## Future Improvements

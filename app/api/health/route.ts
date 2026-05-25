@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isAmadeusConfigured } from "@/lib/server/amadeus";
+import { isDuffelConfigured } from "@/lib/server/duffel";
 import { isGeminiConfigured } from "@/lib/server/gemini";
 import { isGooglePlacesConfigured } from "@/lib/server/googlePlaces";
 import { isOpenAIConfigured } from "@/lib/server/openai";
@@ -16,7 +16,7 @@ export function GET() {
       gemini: isGeminiConfigured(),
       googleMapsServer: isGooglePlacesConfigured(),
       googleMapsBrowser: Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY),
-      amadeus: isAmadeusConfigured(),
+      duffel: isDuffelConfigured(),
       openMeteo: true,
     },
   });

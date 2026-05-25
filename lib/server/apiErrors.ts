@@ -7,7 +7,7 @@ export type ApiErrorCode =
   | "NOT_FOUND"
   | "OPENAI_ERROR"
   | "GOOGLE_PLACES_ERROR"
-  | "AMADEUS_ERROR"
+  | "DUFFEL_ERROR"
   | "WEATHER_ERROR"
   | "DATABASE_ERROR"
   | "RATE_LIMITED"

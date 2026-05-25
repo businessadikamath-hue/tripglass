@@ -119,7 +119,7 @@ export function BudgetSummary({
       <p className="mt-4 text-xs leading-5 text-slate-400">{breakdown.notes}</p>
       {itinerary.live_pricing ? (
         <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-xs leading-5 text-emerald-50">
-          <p className="font-semibold">Live Amadeus pricing attached</p>
+          <p className="font-semibold">Live Duffel pricing attached</p>
           {itinerary.live_pricing.flight_offer ? (
             <p>
               Flight: {formatCurrency(
