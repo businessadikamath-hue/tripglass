@@ -1,6 +1,6 @@
 export type BudgetStatus = "under_budget" | "near_budget" | "over_budget" | "unknown";
 
-export type PlaceSource = "google_places" | "duffel" | "ai_estimate" | "user_input";
+export type PlaceSource = "google_places" | "duffel" | "liteapi" | "ai_estimate" | "user_input";
 
 export type ItineraryCategory =
   | "attraction"

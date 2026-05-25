@@ -8,7 +8,8 @@ TripGlass is a production-ready MVP for AI travel planning. Users enter a destin
 - Supabase Auth, Postgres, and Row Level Security
 - Gemini API or OpenAI Responses API with structured JSON output
 - Google Places API (New) and Maps JavaScript API
-- Optional Duffel APIs for live flight and hotel offer estimates
+- Optional Duffel API for live flight offers
+- Optional LiteAPI Travel API for live hotel rates
 - Open-Meteo weather forecasts
 - Zod, React Hook Form, Lucide React, date-fns
 - Vitest validation tests
@@ -50,6 +51,10 @@ Optional for live travel pricing:
 - `DUFFEL_API_VERSION=v2`
 - `DUFFEL_TIMEOUT_MS=12000`
 - `ENABLE_DUFFEL_TRAVEL=true`
+- `LITEAPI_KEY`
+- `LITEAPI_TIMEOUT_MS=12000`
+- `LITEAPI_GUEST_NATIONALITY=US`
+- `ENABLE_LITEAPI_HOTELS=true`
 
 Useful defaults:
 
@@ -90,9 +95,9 @@ Gemini is the recommended free-tier provider for launching TripGlass without buy
 
 If Google keys are missing, live autocomplete and maps are disabled with visible warnings. Manual destination entry still works.
 
-## Duffel Setup
+## Duffel Flights Setup
 
-Use Duffel only for the pieces TripGlass does not already get from Google: flight offers and hotel/stay offers.
+Use Duffel for live flight offers.
 
 1. Go to [duffel.com](https://duffel.com/) and create a Duffel account.
 2. In the Duffel dashboard, switch to Developer test mode.
@@ -101,18 +106,32 @@ Use Duffel only for the pieces TripGlass does not already get from Google: fligh
 5. Add the token to `.env.local` or Vercel as `DUFFEL_ACCESS_TOKEN`.
 6. Keep `DUFFEL_API_VERSION=v2`.
 7. Keep `ENABLE_DUFFEL_TRAVEL=true`.
-8. If live pricing is slow, lower or raise `DUFFEL_TIMEOUT_MS`. TripGlass falls back to AI estimates if Duffel times out or returns no offers.
-9. Request Duffel Stays access in the dashboard if hotel/stay search is not enabled yet.
+8. If live flight pricing is slow, lower or raise `DUFFEL_TIMEOUT_MS`. TripGlass falls back to AI estimates if Duffel times out or returns no offers.
 10. Add those variables in Vercel Project Settings, then redeploy.
 
 When Duffel is configured, TripGlass calls server-side Duffel APIs only. It uses:
 
 - Flight Offer Requests for airline, timing, and fare offers
-- Stays Search for hotel names, cheapest available rates, and coordinates
 
 Prices are shown as live offers checked at generation time, not guaranteed booking prices. Users should still verify final fare, taxes, rules, room terms, and availability before booking.
 
 Duffel's public help center documents a default live search rate limit of 120 requests per 60 seconds. Limits can vary by endpoint, so keep generation requests server-side and avoid calling live pricing on every keystroke.
+
+## LiteAPI Hotels Setup
+
+Use LiteAPI Travel for live hotel rates and availability.
+
+1. Go to [LiteAPI dashboard](https://dashboard.liteapi.travel/register/).
+2. Create a free account or sign in.
+3. Open `Developer tools` -> `API Keys`.
+4. Copy the sandbox key. Sandbox keys start with `sand_`.
+5. Add it to `.env.local` or Vercel as `LITEAPI_KEY`.
+6. Keep `ENABLE_LITEAPI_HOTELS=true`.
+7. Keep `LITEAPI_TIMEOUT_MS=12000`.
+8. Keep `LITEAPI_GUEST_NATIONALITY=US` unless you want a different default source market.
+9. Redeploy after adding the key.
+
+TripGlass calls LiteAPI only from server routes. If LiteAPI times out, returns no availability, or the key is missing, hotel costs fall back to AI estimates and the itinerary still generates.
 
 ## OpenAI Setup
 
@@ -145,7 +164,8 @@ npm run build
 - `VALIDATION_ERROR`: check destination, duration, travelers, dates, and budget.
 - `UNAUTHORIZED`: sign in or configure Supabase.
 - `GOOGLE_PLACES_ERROR`: verify Places API (New), billing, quotas, and server key restrictions.
-- `DUFFEL_ERROR`: verify Duffel access token, Stays access, quota, date range, and whether the route/hotel market is available.
+- `DUFFEL_ERROR`: verify Duffel access token, quota, date range, and whether the route market is available.
+- `LITEAPI_ERROR`: verify LiteAPI key, sandbox access, quota, date range, and whether hotel availability exists for the destination.
 - `OPENAI_ERROR`: verify the selected AI provider key, model name, quota, and logs.
 
 ## Future Improvements

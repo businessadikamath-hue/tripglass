@@ -26,7 +26,7 @@ export type DuffelFlightOffer = {
 
 export type DuffelHotelOffer = {
   id: string;
-  source: "duffel";
+  source: "duffel" | "liteapi";
   hotelId: string;
   hotelName: string;
   address: string | null;

@@ -1,4 +1,5 @@
 import { addDays, formatISO, isAfter, parseISO } from "date-fns";
+import { getLiteApiHotelOffers, isLiteApiHotelEnabled } from "@/lib/server/liteapi";
 import type {
   DuffelFlightOffer,
   DuffelFlightSegment,
@@ -408,16 +409,21 @@ export async function getDuffelTravelOffers(
     return empty;
   }
 
-  const [flightResult, hotelOffers] = await Promise.all([
+  const [flightResult, liteHotelOffers, duffelHotelOffers] = await Promise.all([
     getFlightOffers(input, warnings).catch((error) => {
       warnings.push(error instanceof Error ? error.message : "Duffel flight search failed.");
       return { originIata: null, destinationIata: null, flightOffers: [] };
+    }),
+    getLiteApiHotelOffers(input, destinationLat, destinationLng, warnings).catch((error) => {
+      warnings.push(error instanceof Error ? error.message : "LiteAPI hotel search failed.");
+      return [];
     }),
     getHotelOffers(input, destinationLat, destinationLng, warnings).catch((error) => {
       warnings.push(error instanceof Error ? error.message : "Duffel hotel search failed.");
       return [];
     }),
   ]);
+  const hotelOffers = liteHotelOffers.length > 0 ? liteHotelOffers : duffelHotelOffers;
 
   return {
     ...empty,
@@ -425,6 +431,15 @@ export async function getDuffelTravelOffers(
     destinationIata: flightResult.destinationIata,
     flightOffers: flightResult.flightOffers,
     hotelOffers,
-    warnings: Array.from(new Set(warnings)),
+    warnings: Array.from(
+      new Set([
+        ...warnings,
+        liteHotelOffers.length > 0
+          ? "Hotel pricing came from LiteAPI live rates."
+          : isLiteApiHotelEnabled()
+            ? "LiteAPI did not return hotel rates; Duffel or AI hotel estimates were used."
+            : "",
+      ]),
+    ).filter(Boolean),
   };
 }

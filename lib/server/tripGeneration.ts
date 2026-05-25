@@ -312,7 +312,7 @@ function livePricingSummary(offers: DuffelTravelOffers): LivePricingSummary | un
         }
       : null,
     notes: [
-      "Flight and hotel prices came from Duffel live offers at generation time.",
+      "Flight prices came from Duffel live offers and hotel prices may come from LiteAPI or Duffel live offers at generation time.",
       "Prices, fare rules, room availability, and cancellation terms can change before booking.",
       ...offers.warnings,
     ],
@@ -355,7 +355,7 @@ function applyLiveTravelOffers(
       ? `Flight pricing uses Duffel offer ${flight.id} checked at ${offers.checkedAt}.`
       : null,
     hotel
-      ? `Hotel pricing uses Duffel stay offer ${hotel.id} for ${hotel.hotelName}.`
+      ? `Hotel pricing uses ${hotel.source === "liteapi" ? "LiteAPI" : "Duffel"} live offer ${hotel.id} for ${hotel.hotelName}.`
       : null,
     "Live offers can change before booking.",
   ].filter(Boolean);
@@ -370,7 +370,7 @@ function applyLiveTravelOffers(
         ...item,
         title: hotel.hotelName,
         description:
-          "Live Duffel stay offer selected as the lodging base for this itinerary. Verify final price and availability before booking.",
+          `Live ${hotel.source === "liteapi" ? "LiteAPI" : "Duffel"} hotel offer selected as the lodging base for this itinerary. Verify final price and availability before booking.`,
         place: {
           ...item.place,
           name: hotel.hotelName,
@@ -378,17 +378,17 @@ function applyLiveTravelOffers(
           address: hotel.address ?? item.place.address,
           lat: hotel.lat ?? item.place.lat,
           lng: hotel.lng ?? item.place.lng,
-          source: "duffel" as const,
+          source: hotel.source,
         },
         estimated_cost: {
           amount: hotel.totalAmount,
           currency: hotel.currency,
           confidence: "high" as const,
-          note: "Live Duffel stay offer at generation time; verify before booking.",
+          note: `Live ${hotel.source === "liteapi" ? "LiteAPI" : "Duffel"} hotel offer at generation time; verify before booking.`,
         },
         booking_note:
           hotel.cancellationDescription ||
-          "Live Duffel stay offer. Verify final rate, taxes, room terms, and availability before booking.",
+          `Live ${hotel.source === "liteapi" ? "LiteAPI" : "Duffel"} hotel offer. Verify final rate, taxes, room terms, and availability before booking.`,
       };
     });
 
@@ -403,7 +403,7 @@ function applyLiveTravelOffers(
           end_time: "15:30",
           title: hotel.hotelName,
           description:
-            "Live Duffel stay offer selected as the lodging base for this itinerary. Verify final price and availability before booking.",
+            `Live ${hotel.source === "liteapi" ? "LiteAPI" : "Duffel"} hotel offer selected as the lodging base for this itinerary. Verify final price and availability before booking.`,
           category: "hotel" as const,
           place: {
             name: hotel.hotelName,
@@ -417,13 +417,13 @@ function applyLiveTravelOffers(
                     `${hotel.lat},${hotel.lng}`,
                   )}`
                 : null,
-            source: "duffel" as const,
+            source: hotel.source,
           },
           estimated_cost: {
             amount: hotel.totalAmount,
             currency: hotel.currency,
             confidence: "high" as const,
-            note: "Live Duffel stay offer at generation time; verify before booking.",
+            note: `Live ${hotel.source === "liteapi" ? "LiteAPI" : "Duffel"} hotel offer at generation time; verify before booking.`,
           },
           why_it_fits:
             "It gives the itinerary a concrete lodging base backed by a live hotel offer.",
@@ -431,7 +431,7 @@ function applyLiveTravelOffers(
           accessibility_note: "Confirm room and property accessibility directly before booking.",
           booking_note:
             hotel.cancellationDescription ||
-            "Live Duffel stay offer. Verify final rate, taxes, room terms, and availability before booking.",
+            `Live ${hotel.source === "liteapi" ? "LiteAPI" : "Duffel"} hotel offer. Verify final rate, taxes, room terms, and availability before booking.`,
         },
         ...items,
       ],
@@ -450,7 +450,7 @@ function applyLiveTravelOffers(
           (warning) =>
             !warning.toLowerCase().includes("hotel and flight costs are planning estimates"),
         ),
-        "Flight and hotel prices use Duffel live offers where available, but can change before booking.",
+        "Flight prices use Duffel and hotel prices use LiteAPI/Duffel live offers where available, but can change before booking.",
         ...offers.warnings,
       ]),
     ),

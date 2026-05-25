@@ -28,7 +28,7 @@ export const itineraryItemSchema = z.object({
     lat: z.number().nullable(),
     lng: z.number().nullable(),
     google_maps_url: z.string().url().nullable(),
-    source: z.enum(["google_places", "duffel", "ai_estimate", "user_input"]),
+    source: z.enum(["google_places", "duffel", "liteapi", "ai_estimate", "user_input"]),
   }),
   estimated_cost: z.object({
     amount: z.number().nonnegative().nullable(),
