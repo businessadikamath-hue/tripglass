@@ -29,6 +29,7 @@ type RawLiteRate = {
   hotelName?: string;
   name?: string;
   address?: string;
+  roomTypeName?: string;
   latitude?: number;
   longitude?: number;
   lat?: number;
@@ -37,7 +38,13 @@ type RawLiteRate = {
   total?: unknown;
   amount?: unknown;
   totalAmount?: unknown;
-  retailRate?: { total?: unknown; amount?: unknown; currency?: string };
+  retailRate?: {
+    total?: unknown;
+    amount?: unknown;
+    currency?: string;
+    suggestedSellingPrice?: unknown;
+    initialPrice?: unknown;
+  };
   netRate?: { total?: unknown; amount?: unknown; currency?: string };
   currency?: string;
   roomType?: string;
@@ -76,7 +83,14 @@ function checkoutDate(input: TripInput) {
   return isAfter(parseISO(end), parseISO(start)) ? end : nextDate(start);
 }
 
-function toNumber(value: unknown) {
+function toNumber(value: unknown): number | null {
+  if (Array.isArray(value)) {
+    return value.map(toNumber).find((item): item is number => item !== null) ?? null;
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return toNumber(record.amount ?? record.total ?? record.value);
+  }
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
     const parsed = Number(value.replace(/,/g, ""));
@@ -157,6 +171,23 @@ function flattenRates(payload: unknown): RawLiteRate[] {
     }));
   }
 
+  if (Array.isArray(record.roomTypes)) {
+    return record.roomTypes.flatMap((roomType) => {
+      const typedRoom = roomType as Record<string, unknown>;
+      const rates = Array.isArray(typedRoom.rates) ? typedRoom.rates : [];
+      return rates.map((rate) => ({
+        ...(rate as RawLiteRate),
+        hotel: record as RawLiteHotel,
+        hotelId: String(record.hotelId ?? record.id ?? ""),
+        hotelName: String(record.hotelName ?? record.name ?? ""),
+        address: String(record.address ?? ""),
+        latitude: toNumber(record.latitude ?? record.lat) ?? undefined,
+        longitude: toNumber(record.longitude ?? record.lng) ?? undefined,
+        roomTypeName: String(typedRoom.name ?? typedRoom.roomName ?? ""),
+      }));
+    });
+  }
+
   return [record as RawLiteRate];
 }
 
@@ -164,6 +195,8 @@ function rateAmount(rate: RawLiteRate) {
   return (
     toNumber(rate.retailRate?.total) ??
     toNumber(rate.retailRate?.amount) ??
+    toNumber(rate.retailRate?.suggestedSellingPrice) ??
+    toNumber(rate.retailRate?.initialPrice) ??
     toNumber(rate.totalAmount) ??
     toNumber(rate.total) ??
     toNumber(rate.price) ??
@@ -203,7 +236,7 @@ function normalizeHotelOffer(
     )
       .slice(0, 3)
       .toUpperCase(),
-    roomType: rate.roomType ?? rate.roomName ?? "Lowest available room rate",
+    roomType: rate.roomType ?? rate.roomName ?? rate.roomTypeName ?? "Lowest available room rate",
     cancellationDescription:
       rate.cancellationPolicies?.[0]?.description ??
       rate.cancellationPolicies?.[0]?.text ??
